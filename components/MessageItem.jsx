@@ -12,14 +12,14 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import NextImage from 'next/image';
 import { cn, formatKakaoTime } from '@/lib/utils';
 
-const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick }) => {
+const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, chatUser }) => {
   const formattedTime = msg.timestamp ? formatKakaoTime(msg.timestamp) : '';
-  const avatarSrc = msg.uid === 'owner-01' ? '/images/nyanya.jpg' : '/images/icon.png';
-
-  // 메시지 유형이 'emoticon'인지 확인합니다.
+  const isOwnerOrBot = msg.uid === 'owner-01' || msg.uid === 'bot-01';
+  const avatarSrc = isOwnerOrBot ? '/images/nyanya.jpg' : '/images/icon.png';
   const isEmoticon = msg.type === 'emoticon';
 
-  // 이모티콘 메시지일 경우 말풍선 없이 이미지만 표시합니다.
+  const canDelete = isMyMessage || (chatUser?.uid === 'owner-01' && msg.uid === 'bot-01');
+
   if (isEmoticon) {
     return (
       <div className={cn('flex items-start gap-2', isMyMessage ? 'justify-end' : 'justify-start')}>
@@ -43,7 +43,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick }) =
                 />
               </div>
             </DropdownMenuTrigger>
-            {isMyMessage && (
+            {canDelete && (
               <DropdownMenuContent>
                 <DropdownMenuItem onClick={() => onDelete(msg)} className="text-red-500 cursor-pointer">
                   삭제하기
@@ -59,7 +59,6 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick }) =
     );
   }
 
-  // 일반 텍스트 또는 사진 메시지
   return (
     <div className={cn('flex gap-2', isMyMessage ? 'justify-end' : 'justify-start')}>
       {!isMyMessage && showAvatar && (
@@ -95,7 +94,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick }) =
               <p>{msg.text}</p>
             </Card>
           </DropdownMenuTrigger>
-          {isMyMessage && (
+          {canDelete && (
             <DropdownMenuContent>
               <DropdownMenuItem
                 onClick={() => onDelete(msg)}

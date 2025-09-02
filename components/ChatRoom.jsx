@@ -24,6 +24,7 @@ const ChatRoom = () => {
   const scrollTargetRef = useRef(null);
   const emoticonPickerRef = useRef(null);
   const emoticonButtonRef = useRef(null);
+  const lastProcessedMessageId = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -55,6 +56,51 @@ const ChatRoom = () => {
   }, [setMessages]);
 
   useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+
+    if (
+      lastMessage &&
+      lastMessage.uid === 'customer-01' &&
+      lastMessage.type === 'text' &&
+      lastMessage.id !== lastProcessedMessageId.current
+    ) {
+      lastProcessedMessageId.current = lastMessage.id;
+
+      const fetchBotResponseAndSendMessage = async (prompt) => {
+        try {
+            prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ' + prompt;
+          const response = await fetch('https://musclecat.co.kr/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt }),
+          });
+
+          if (!response.ok) throw new Error('Network response was not ok');
+          
+          const botResponseText = await response.text(); 
+
+          if (botResponseText) {
+            await addDoc(collection(db, 'messages'), {
+              text: botResponseText,
+              imageUrl: null,
+              type: 'text',
+              sender: '근육고양이봇',
+              uid: 'bot-01',
+              timestamp: serverTimestamp()
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching bot response: ", error);
+        }
+      };
+      
+      setTimeout(() => fetchBotResponseAndSendMessage(lastMessage.text), 1000);
+    }
+  }, [messages]);
+
+  useEffect(() => {
     if (scrollTargetRef.current) {
       scrollTargetRef.current.scrollIntoView({ behavior: 'auto' });
     }
@@ -68,7 +114,6 @@ const ChatRoom = () => {
     setSelectedImageUrl(null);
   };
 
-  // 💡 메시지 유형(type)을 명시적으로 전달하도록 수정
   const handleSendMessage = async (text, imageUrl = null, type = 'text') => {
     if (!text?.trim() && !imageUrl) return;
     if (!chatUser || !authUser) return;
@@ -76,7 +121,7 @@ const ChatRoom = () => {
       await addDoc(collection(db, 'messages'), { 
         text, 
         imageUrl, 
-        type, // 💡 'text', 'photo', 'emoticon'
+        type,
         sender: chatUser.name, 
         uid: chatUser.uid, 
         authUid: authUser.uid, 
@@ -102,8 +147,6 @@ const ChatRoom = () => {
     if (confirm("메시지를 삭제하시겠습니까?")) {
       try {
         await deleteDoc(doc(db, 'messages', msgToDelete.id));
-
-        // 💡 메시지 유형이 'photo'일 때만 Storage에서 파일을 삭제합니다.
         if (msgToDelete.imageUrl && msgToDelete.type === 'photo') {
           const imageRef = ref(storage, msgToDelete.imageUrl);
           await deleteObject(imageRef);
@@ -134,7 +177,6 @@ const ChatRoom = () => {
       const snapshot = await uploadBytes(storageRef, finalBlob);
       const imageUrl = await getDownloadURL(snapshot.ref);
       
-      // 💡 사진 메시지이므로 type을 'photo'로 지정
       await handleSendMessage('', imageUrl, 'photo');
 
     } catch (error) {
@@ -169,6 +211,7 @@ const ChatRoom = () => {
               showAvatar={index === 0 || messages[index - 1].uid !== msg.uid}
               onDelete={handleDeleteMessage}
               onImageClick={handleImageClick}
+              chatUser={chatUser}
             />
           ))}
           <div ref={scrollTargetRef} />
