@@ -15,7 +15,7 @@ import ImageModal from './ImageModal';
 import EmoticonPicker from './EmoticonPicker';
 
 const ChatRoom = () => {
-  const { authUser, chatUser, messages, setMessages } = useChatStore();
+  const { authUser, chatUser, messages, setMessages, isBotActive, toggleBotActive } = useChatStore();
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -56,7 +56,7 @@ const ChatRoom = () => {
   }, [setMessages]);
 
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0 || !isBotActive) return;
 
     const lastMessage = messages[messages.length - 1];
 
@@ -98,7 +98,7 @@ const ChatRoom = () => {
       
       setTimeout(() => fetchBotResponseAndSendMessage(lastMessage.text), 1000);
     }
-  }, [messages]);
+  }, [messages, isBotActive]);
 
   useEffect(() => {
     if (scrollTargetRef.current) {
@@ -194,8 +194,18 @@ const ChatRoom = () => {
   return (
     <div className="flex flex-col h-full w-full bg-[#b2c7dc]">
       <header className="p-4 border-b bg-white flex items-center justify-between shadow-sm z-10">
-        <h1 className="text-lg font-bold text-gray-800">근육고양이 채팅방</h1>
-        <div className="flex items-center gap-4">
+        <div className="flex-1"></div>
+        <div className="flex-1 text-center">
+          <h1 className="text-lg font-bold text-gray-800">
+            근육고양이 채팅방
+            {chatUser.uid === 'owner-01' && (
+              <Button onClick={toggleBotActive} variant="outline" size="sm" className="ml-2">
+                {isBotActive ? '봇 ON' : '봇 OFF'}
+              </Button>
+            )}
+          </h1>
+        </div>
+        <div className="flex-1 flex items-center justify-end gap-4">
           <p className="text-sm text-gray-500"><span className="font-semibold">{chatUser.name}</span>님으로 접속</p>
           <Button variant="ghost" size="icon" onClick={() => signOut(auth)} title="로그아웃"><LogOut className="size-4" /></Button>
         </div>
@@ -265,4 +275,3 @@ const ChatRoom = () => {
 };
 
 export default ChatRoom;
-
