@@ -6,7 +6,7 @@ import useChatStore from '@/store/chat-store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { cn, formatKakaoTime } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Camera, LogOut, Loader2 } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import imageCompression from 'browser-image-compression';
@@ -17,7 +17,7 @@ const ChatRoom = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const lastMessageRef = useRef(null);
+  const scrollTargetRef = useRef(null);
 
   useEffect(() => {
     if (!db) return;
@@ -25,21 +25,21 @@ const ChatRoom = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setMessages(msgs);
+    }, (error) => {
+        console.error("Error fetching messages: ", error);
     });
     return () => unsubscribe();
   }, [setMessages]);
 
   useEffect(() => {
-    if (lastMessageRef.current) {
-      lastMessageRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (scrollTargetRef.current) {
+      scrollTargetRef.current.scrollIntoView({ behavior: 'auto' });
     }
   }, [messages]);
 
   const handleSendMessage = async (text, imageUrl = null) => {
-    // 💡 텍스트와 이미지가 모두 비어있으면 전송하지 않도록 수정
     if (!text?.trim() && !imageUrl) return;
     if (!chatUser || !authUser) return;
-    
     try {
       await addDoc(collection(db, 'messages'), { text, imageUrl, sender: chatUser.name, uid: chatUser.uid, authUid: authUser.uid, timestamp: serverTimestamp() });
       if (!imageUrl) setNewMessage('');
@@ -70,16 +70,13 @@ const ChatRoom = () => {
   const handleCapture = async (imageBlob) => {
     if (!authUser || !chatUser) return;
     setIsUploading(true);
-    const options = { maxSizeKB: 100, maxWidthOrHeight: 600, useWebWorker: true, fileType: 'image/avif' };
+    const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true, fileType: 'image/avif' };
     try {
       const compressedBlob = await imageCompression(imageBlob, options);
       const storageRef = ref(storage, `chat_images/${authUser.uid}/${Date.now()}.avif`);
       const snapshot = await uploadBytes(storageRef, compressedBlob);
       const imageUrl = await getDownloadURL(snapshot.ref);
-      
-      // 💡 텍스트를 빈 문자열로 전달
       await handleSendMessage('', imageUrl);
-
     } catch (error) {
       console.error("Image compression or upload error: ", error);
       alert("이미지 처리 중 오류가 발생했습니다.");
@@ -102,24 +99,19 @@ const ChatRoom = () => {
         </div>
       </header>
 
-      <ScrollArea className="flex-1 p-4">
+      {/* 💡 ScrollArea의 className에 min-h-0 추가 */}
+      <ScrollArea className="flex-1 min-h-0 p-4">
         <div className="space-y-4">
-          {messages.map((msg, index) => {
-            const isMyMessage = msg.uid === chatUser.uid;
-            const showAvatar = index === 0 || messages[index - 1].uid !== msg.uid;
-            const isLastMessage = index === messages.length - 1;
-
-            return (
-              <div ref={isLastMessage ? lastMessageRef : null} key={msg.id}>
-                <MessageItem
-                  msg={msg}
-                  isMyMessage={isMyMessage}
-                  showAvatar={showAvatar}
-                  onDelete={handleDeleteMessage}
-                />
-              </div>
-            );
-          })}
+          {messages.map((msg, index) => (
+            <MessageItem
+              key={msg.id}
+              msg={msg}
+              isMyMessage={msg.uid === chatUser.uid}
+              showAvatar={index === 0 || messages[index - 1].uid !== msg.uid}
+              onDelete={handleDeleteMessage}
+            />
+          ))}
+          <div ref={scrollTargetRef} />
         </div>
       </ScrollArea>
 
