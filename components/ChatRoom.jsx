@@ -70,7 +70,7 @@ const ChatRoom = () => {
   const handleCapture = async (imageBlob) => {
     if (!authUser || !chatUser) return;
     setIsUploading(true);
-    const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true, fileType: 'image/avif' };
+    const options = { maxSizeKB: 100, maxWidthOrHeight: 600, useWebWorker: true, fileType: 'image/avif' };
     try {
       const compressedBlob = await imageCompression(imageBlob, options);
       const storageRef = ref(storage, `chat_images/${authUser.uid}/${Date.now()}.avif`);
