@@ -70,13 +70,32 @@ const ChatRoom = () => {
   const handleCapture = async (imageBlob) => {
     if (!authUser || !chatUser) return;
     setIsUploading(true);
-    const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true, fileType: 'image/avif' };
+    
+    const options = {
+      maxSizeKB: 50,
+      maxWidthOrHeight: 400,
+      useWebWorker: true,
+      fileType: 'image/avif',
+    };
+
     try {
+      console.log(`Original image size: ${(imageBlob.size / 1024).toFixed(2)} KB`);
+      
       const compressedBlob = await imageCompression(imageBlob, options);
-      const storageRef = ref(storage, `chat_images/${authUser.uid}/${Date.now()}.avif`);
-      const snapshot = await uploadBytes(storageRef, compressedBlob);
+      console.log(`Compressed AVIF image size: ${(compressedBlob.size / 1024).toFixed(2)} KB`);
+
+      // 💡 압축 후 용량이 더 크면 원본 사용, 작으면 압축본 사용
+      const finalBlob = compressedBlob.size < imageBlob.size ? compressedBlob : imageBlob;
+      const fileExtension = finalBlob.type === 'image/avif' ? 'avif' : 'jpeg';
+      
+      console.log(`Final upload size: ${(finalBlob.size / 1024).toFixed(2)} KB with extension .${fileExtension}`);
+
+      const storageRef = ref(storage, `chat_images/${authUser.uid}/${Date.now()}.${fileExtension}`);
+      const snapshot = await uploadBytes(storageRef, finalBlob);
       const imageUrl = await getDownloadURL(snapshot.ref);
+      
       await handleSendMessage('', imageUrl);
+
     } catch (error) {
       console.error("Image compression or upload error: ", error);
       alert("이미지 처리 중 오류가 발생했습니다.");
@@ -99,7 +118,6 @@ const ChatRoom = () => {
         </div>
       </header>
 
-      {/* 💡 ScrollArea의 className에 min-h-0 추가 */}
       <ScrollArea className="flex-1 min-h-0 p-4">
         <div className="space-y-4">
           {messages.map((msg, index) => (
