@@ -31,7 +31,7 @@ const EmoticonPicker = forwardRef(({ onEmoticonSelect, onClose }, ref) => {
 
     return (
         <div ref={ref} className="absolute bottom-full right-0 mb-2 z-20">
-            <Card className="w-80 shadow-lg">
+            <Card className="w-80 shadow-lg p-1">
                 <ScrollArea className="h-64">
                     <CardContent className="p-2">
                         {isLoading ? (
@@ -39,12 +39,12 @@ const EmoticonPicker = forwardRef(({ onEmoticonSelect, onClose }, ref) => {
                                 <Loader2 className="animate-spin h-6 w-6" />
                             </div>
                         ) : (
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="grid grid-cols-4 gap-1">
                                 {emoticons.map((emo) => (
                                     <button
                                         key={emo.id}
                                         onClick={() => handleSelect(emo.url)}
-                                        className="p-2 rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring aspect-square"
+                                        className="p-0 rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring aspect-square"
                                     >
                                         <div className="relative w-full h-full">
                                             <Image

@@ -68,22 +68,33 @@ const ChatRoom = () => {
     setSelectedImageUrl(null);
   };
 
-  const handleSendMessage = async (text, imageUrl = null) => {
+  // 💡 메시지 유형(type)을 명시적으로 전달하도록 수정
+  const handleSendMessage = async (text, imageUrl = null, type = 'text') => {
     if (!text?.trim() && !imageUrl) return;
     if (!chatUser || !authUser) return;
     try {
-      await addDoc(collection(db, 'messages'), { text, imageUrl, sender: chatUser.name, uid: chatUser.uid, authUid: authUser.uid, timestamp: serverTimestamp() });
-      if (!imageUrl) setNewMessage('');
+      await addDoc(collection(db, 'messages'), { 
+        text, 
+        imageUrl, 
+        type, // 💡 'text', 'photo', 'emoticon'
+        sender: chatUser.name, 
+        uid: chatUser.uid, 
+        authUid: authUser.uid, 
+        timestamp: serverTimestamp() 
+      });
+      if (type === 'text') {
+        setNewMessage('');
+      }
     } catch (error) { console.error("Error sending message: ", error); }
   };
 
   const handleTextSubmit = (e) => {
     e.preventDefault();
-    handleSendMessage(newMessage);
+    handleSendMessage(newMessage, null, 'text');
   };
 
   const handleEmoticonSend = (imageUrl) => {
-    handleSendMessage(null, imageUrl);
+    handleSendMessage(null, imageUrl, 'emoticon');
   };
   
   const handleDeleteMessage = async (msgToDelete) => {
@@ -91,7 +102,9 @@ const ChatRoom = () => {
     if (confirm("메시지를 삭제하시겠습니까?")) {
       try {
         await deleteDoc(doc(db, 'messages', msgToDelete.id));
-        if (msgToDelete.imageUrl) {
+
+        // 💡 메시지 유형이 'photo'일 때만 Storage에서 파일을 삭제합니다.
+        if (msgToDelete.imageUrl && msgToDelete.type === 'photo') {
           const imageRef = ref(storage, msgToDelete.imageUrl);
           await deleteObject(imageRef);
         }
@@ -114,21 +127,15 @@ const ChatRoom = () => {
     };
 
     try {
-      console.log(`Original image size: ${(imageBlob.size / 1024).toFixed(2)} KB`);
-      
       const compressedBlob = await imageCompression(imageBlob, options);
-      console.log(`Compressed AVIF image size: ${(compressedBlob.size / 1024).toFixed(2)} KB`);
-
       const finalBlob = compressedBlob.size < imageBlob.size ? compressedBlob : imageBlob;
       const fileExtension = finalBlob.type === 'image/avif' ? 'avif' : 'jpeg';
-      
-      console.log(`Final upload size: ${(finalBlob.size / 1024).toFixed(2)} KB with extension .${fileExtension}`);
-
       const storageRef = ref(storage, `chat_images/${authUser.uid}/${Date.now()}.${fileExtension}`);
       const snapshot = await uploadBytes(storageRef, finalBlob);
       const imageUrl = await getDownloadURL(snapshot.ref);
       
-      await handleSendMessage('', imageUrl);
+      // 💡 사진 메시지이므로 type을 'photo'로 지정
+      await handleSendMessage('', imageUrl, 'photo');
 
     } catch (error) {
       console.error("Image compression or upload error: ", error);
