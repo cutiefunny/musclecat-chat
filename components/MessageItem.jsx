@@ -12,14 +12,18 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import NextImage from 'next/image';
 import { cn, formatKakaoTime } from '@/lib/utils';
 
-const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete }) => {
+const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick }) => {
   const formattedTime = msg.timestamp ? formatKakaoTime(msg.timestamp) : '';
+
+  // 💡 사용자의 uid에 따라 아바타 이미지를 결정합니다.
+  const avatarSrc = msg.uid === 'owner-01' ? '/images/nyanya.jpg' : '/images/icon.png';
 
   return (
     <div className={cn('flex gap-2', isMyMessage ? 'justify-end' : 'justify-start')}>
       {!isMyMessage && showAvatar && (
         <Avatar className="size-8 mt-1">
-          <AvatarImage src={`/images/icon.png`} alt={msg.sender} />
+          {/* 💡 결정된 아바타 이미지를 src에 적용합니다. */}
+          <AvatarImage src={avatarSrc} alt={msg.sender} />
           <AvatarFallback>{msg.sender.charAt(0)}</AvatarFallback>
         </Avatar>
       )}
@@ -34,20 +38,22 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete }) => {
               )}
             >
               {msg.imageUrl && (
-                <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer">
+                <div onClick={() => onImageClick(msg.imageUrl)} className="cursor-pointer">
                   <NextImage
                     src={msg.imageUrl}
                     alt="채팅 이미지"
                     width={200}
                     height={200}
-                    className="rounded-lg mb-2 object-cover max-h-[200px] w-auto"
+                    className={cn(
+                      "rounded-lg object-cover max-h-[200px] w-auto",
+                      { "mb-2": msg.text } 
+                    )}
                   />
-                </a>
+                </div>
               )}
               <p>{msg.text}</p>
             </Card>
           </DropdownMenuTrigger>
-          {/* 내가 보낸 메시지만 삭제 가능하도록 설정 */}
           {isMyMessage && (
             <DropdownMenuContent>
               <DropdownMenuItem

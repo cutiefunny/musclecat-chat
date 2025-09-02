@@ -11,12 +11,14 @@ import { Camera, LogOut, Loader2 } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import imageCompression from 'browser-image-compression';
 import MessageItem from './MessageItem';
+import ImageModal from './ImageModal'; // 💡 ImageModal 컴포넌트 import
 
 const ChatRoom = () => {
   const { authUser, chatUser, messages, setMessages } = useChatStore();
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState(null); // 💡 이미지 모달 상태
   const scrollTargetRef = useRef(null);
 
   useEffect(() => {
@@ -36,6 +38,16 @@ const ChatRoom = () => {
       scrollTargetRef.current.scrollIntoView({ behavior: 'auto' });
     }
   }, [messages]);
+    
+  // 💡 이미지 클릭 핸들러
+  const handleImageClick = (imageUrl) => {
+    setSelectedImageUrl(imageUrl);
+  };
+
+  // 💡 모달 닫기 핸들러
+  const handleCloseModal = () => {
+    setSelectedImageUrl(null);
+  };
 
   const handleSendMessage = async (text, imageUrl = null) => {
     if (!text?.trim() && !imageUrl) return;
@@ -84,7 +96,6 @@ const ChatRoom = () => {
       const compressedBlob = await imageCompression(imageBlob, options);
       console.log(`Compressed AVIF image size: ${(compressedBlob.size / 1024).toFixed(2)} KB`);
 
-      // 💡 압축 후 용량이 더 크면 원본 사용, 작으면 압축본 사용
       const finalBlob = compressedBlob.size < imageBlob.size ? compressedBlob : imageBlob;
       const fileExtension = finalBlob.type === 'image/avif' ? 'avif' : 'jpeg';
       
@@ -127,6 +138,7 @@ const ChatRoom = () => {
               isMyMessage={msg.uid === chatUser.uid}
               showAvatar={index === 0 || messages[index - 1].uid !== msg.uid}
               onDelete={handleDeleteMessage}
+              onImageClick={handleImageClick} // 💡 핸들러 전달
             />
           ))}
           <div ref={scrollTargetRef} />
@@ -144,6 +156,9 @@ const ChatRoom = () => {
       </div>
 
       {isCameraOpen && <CameraCapture onCapture={handleCapture} onClose={() => setIsCameraOpen(false)} />}
+      
+      {/* 💡 이미지 모달 렌더링 */}
+      <ImageModal imageUrl={selectedImageUrl} onClose={handleCloseModal} />
     </div>
   );
 };
