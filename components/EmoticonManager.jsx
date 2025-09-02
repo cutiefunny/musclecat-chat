@@ -38,8 +38,8 @@ const EmoticonManager = () => {
         setIsUploading(true);
         try {
             const options = {
-                maxSizeMB: 1,
-                maxWidthOrHeight: 150, // 최대 길이 150px
+                maxSizeKB: 100,
+                maxWidthOrHeight: 200, // 최대 길이 200px
                 useWebWorker: true,
                 fileType: 'image/avif', // AVIF 형식으로 압축
             };
@@ -132,7 +132,7 @@ const EmoticonManager = () => {
             </CardHeader>
             <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                    이미지를 드래그하여 순서를 변경할 수 있습니다. 이미지는 최대 150px 길이의 AVIF 형식으로 자동 변환됩니다.
+                    이미지를 드래그하여 순서를 변경할 수 있습니다. 이미지는 최대 200px 길이의 AVIF 형식으로 자동 변환됩니다.
                 </p>
                 {emoticons.length === 0 ? (
                     <div className="text-center py-12 border-2 border-dashed rounded-lg">
