@@ -194,18 +194,13 @@ const ChatRoom = () => {
   return (
     <div className="flex flex-col h-full w-full bg-[#b2c7dc]">
       <header className="p-4 border-b bg-white flex items-center justify-between shadow-sm z-10">
-        <div className="flex-1"></div>
-        <div className="flex-1 text-center">
-          <h1 className="text-lg font-bold text-gray-800">
-            근육고양이 채팅방
-            {chatUser.uid === 'owner-01' && (
-              <Button onClick={toggleBotActive} variant="outline" size="sm" className="ml-2">
-                {isBotActive ? '봇 ON' : '봇 OFF'}
-              </Button>
-            )}
-          </h1>
-        </div>
-        <div className="flex-1 flex items-center justify-end gap-4">
+        <h1 className="text-lg font-bold text-gray-800">근육고양이 채팅방</h1>
+        <div className="flex items-center gap-4">
+          {chatUser.uid === 'owner-01' && (
+            <Button onClick={toggleBotActive} variant="outline" size="sm">
+              {isBotActive ? '봇 ON' : '봇 OFF'}
+            </Button>
+          )}
           <p className="text-sm text-gray-500"><span className="font-semibold">{chatUser.name}</span>님으로 접속</p>
           <Button variant="ghost" size="icon" onClick={() => signOut(auth)} title="로그아웃"><LogOut className="size-4" /></Button>
         </div>
