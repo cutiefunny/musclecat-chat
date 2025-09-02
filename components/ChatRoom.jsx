@@ -7,19 +7,40 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Camera, LogOut, Loader2 } from 'lucide-react';
+import { Camera, LogOut, Loader2, Smile } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import imageCompression from 'browser-image-compression';
 import MessageItem from './MessageItem';
-import ImageModal from './ImageModal'; // 💡 ImageModal 컴포넌트 import
+import ImageModal from './ImageModal';
+import EmoticonPicker from './EmoticonPicker';
 
 const ChatRoom = () => {
   const { authUser, chatUser, messages, setMessages } = useChatStore();
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState(null); // 💡 이미지 모달 상태
+  const [selectedImageUrl, setSelectedImageUrl] = useState(null);
+  const [isEmoticonPickerOpen, setIsEmoticonPickerOpen] = useState(false);
   const scrollTargetRef = useRef(null);
+  const emoticonPickerRef = useRef(null);
+  const emoticonButtonRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        emoticonPickerRef.current &&
+        !emoticonPickerRef.current.contains(event.target) &&
+        emoticonButtonRef.current &&
+        !emoticonButtonRef.current.contains(event.target)
+      ) {
+        setIsEmoticonPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (!db) return;
@@ -39,12 +60,10 @@ const ChatRoom = () => {
     }
   }, [messages]);
     
-  // 💡 이미지 클릭 핸들러
   const handleImageClick = (imageUrl) => {
     setSelectedImageUrl(imageUrl);
   };
 
-  // 💡 모달 닫기 핸들러
   const handleCloseModal = () => {
     setSelectedImageUrl(null);
   };
@@ -61,6 +80,10 @@ const ChatRoom = () => {
   const handleTextSubmit = (e) => {
     e.preventDefault();
     handleSendMessage(newMessage);
+  };
+
+  const handleEmoticonSend = (imageUrl) => {
+    handleSendMessage(null, imageUrl);
   };
   
   const handleDeleteMessage = async (msgToDelete) => {
@@ -138,7 +161,7 @@ const ChatRoom = () => {
               isMyMessage={msg.uid === chatUser.uid}
               showAvatar={index === 0 || messages[index - 1].uid !== msg.uid}
               onDelete={handleDeleteMessage}
-              onImageClick={handleImageClick} // 💡 핸들러 전달
+              onImageClick={handleImageClick}
             />
           ))}
           <div ref={scrollTargetRef} />
@@ -150,17 +173,46 @@ const ChatRoom = () => {
           <Button type="button" variant="ghost" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isUploading} className="rounded-full size-10 flex-shrink-0">
             {isUploading ? <Loader2 className="size-5 animate-spin" /> : <Camera className="size-5 text-gray-600" />}
           </Button>
-          <Textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="메시지를 입력하세요..." className="flex-1 resize-none rounded-xl border-gray-300 focus:border-yellow-400 focus:ring-yellow-400 bg-white" onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit(e); } }} rows={1} style={{ maxHeight: '100px', minHeight: '40px' }} />
+          
+          <div className="relative flex-1">
+            {isEmoticonPickerOpen && (
+              <EmoticonPicker 
+                ref={emoticonPickerRef}
+                onEmoticonSelect={handleEmoticonSend}
+                onClose={() => setIsEmoticonPickerOpen(false)}
+              />
+            )}
+            <Textarea 
+              value={newMessage} 
+              onChange={(e) => setNewMessage(e.target.value)} 
+              placeholder="메시지를 입력하세요..." 
+              className="pr-12 resize-none rounded-xl border-gray-300 focus:border-yellow-400 focus:ring-yellow-400 bg-white" 
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit(e); } }} 
+              rows={1} 
+              style={{ maxHeight: '100px', minHeight: '40px' }} 
+            />
+            <Button 
+              ref={emoticonButtonRef}
+              type="button" 
+              variant="ghost" 
+              size="icon" 
+              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full size-8"
+              onClick={() => setIsEmoticonPickerOpen(prev => !prev)}
+            >
+              <Smile className="size-5 text-gray-500" />
+            </Button>
+          </div>
+
           <Button type="submit" className="rounded-xl px-4 py-2 bg-[#ffe812] text-gray-900 hover:bg-[#fdd800] focus:ring-yellow-400" disabled={newMessage.trim() === ''}>전송</Button>
         </form>
       </div>
 
       {isCameraOpen && <CameraCapture onCapture={handleCapture} onClose={() => setIsCameraOpen(false)} />}
       
-      {/* 💡 이미지 모달 렌더링 */}
       <ImageModal imageUrl={selectedImageUrl} onClose={handleCloseModal} />
     </div>
   );
 };
 
 export default ChatRoom;
+
