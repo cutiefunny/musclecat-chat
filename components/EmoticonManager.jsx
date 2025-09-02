@@ -70,7 +70,9 @@ const EmoticonManager = () => {
             // Firestore 문서 삭제
             await deleteDoc(doc(db, "emoticons", emoticon.id));
             // Storage 파일 삭제
-            const imageRef = ref(storage, emoticon.url);
+            const imagePath = new URL(emoticon.url).pathname.split('/o/')[1].split('?')[0];
+            const decodedPath = decodeURIComponent(imagePath);
+            const imageRef = ref(storage, decodedPath);
             await deleteObject(imageRef);
         } catch (error) {
             console.error("Error deleting emoticon:", error);
@@ -80,16 +82,6 @@ const EmoticonManager = () => {
     
     // 드래그 순서 변경 후 Firestore에 순서 업데이트
     const handleSortUpdate = async () => {
-        const batch = writeBatch(db);
-        emoticons.forEach((emoticon, index) => {
-            const docRef = doc(db, "emoticons", emoticon.id);
-            batch.update(docRef, { order: index });
-        });
-        await batch.commit();
-    };
-
-    // 드래그 앤 드롭 이벤트 핸들러
-    const handleDragEnd = () => {
         const newEmoticons = [...emoticons];
         const draggedItemContent = newEmoticons.splice(dragItem.current, 1)[0];
         newEmoticons.splice(dragOverItem.current, 0, draggedItemContent);
@@ -98,13 +90,13 @@ const EmoticonManager = () => {
         dragOverItem.current = null;
 
         setEmoticons(newEmoticons);
-        // 상태 업데이트 후 바로 Firestore 업데이트
+
         const batch = writeBatch(db);
         newEmoticons.forEach((emoticon, index) => {
             const docRef = doc(db, "emoticons", emoticon.id);
             batch.update(docRef, { order: index });
         });
-        batch.commit().catch(err => console.error("순서 업데이트 실패:", err));
+        await batch.commit().catch(err => console.error("순서 업데이트 실패:", err));
     };
 
 

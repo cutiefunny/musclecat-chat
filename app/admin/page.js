@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { auth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "@/lib/firebase/clientApp";
 import EmoticonManager from "@/components/EmoticonManager";
+import ChatMessageManager from "@/components/ChatMessageManager";
+import { ChevronDown } from "lucide-react"; // 아이콘 import 추가
 
 // 로그인 화면 컴포넌트
 const LoginScreen = ({ handleLogin }) => (
@@ -31,26 +33,71 @@ const LoginScreen = ({ handleLogin }) => (
 );
 
 // 어드민 대시보드 컴포넌트 (로그인 후)
-const AdminDashboard = ({ user }) => (
-    <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm">
-            <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-                <h1 className="text-xl font-bold text-gray-900">어드민 대시보드</h1>
-                <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-600">환영합니다, {user.displayName}님</span>
-                    <Button variant="outline" size="sm" onClick={() => signOut(auth)}>
-                        로그아웃
-                    </Button>
+const AdminDashboard = ({ user }) => {
+    // 섹션별 열림 상태를 관리하는 state
+    const [isOpen, setIsOpen] = useState({
+        chat: false,
+        emoticon: false,
+    });
+
+    // 섹션 열림/닫힘 토글 함수
+    const toggleSection = (section) => {
+        setIsOpen(prev => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <header className="bg-white shadow-sm">
+                <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                    <h1 className="text-xl font-bold text-gray-900">어드민 대시보드</h1>
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-600">환영합니다, {user.displayName}님</span>
+                        <Button variant="outline" size="sm" onClick={() => signOut(auth)}>
+                            로그아웃
+                        </Button>
+                    </div>
                 </div>
-            </div>
-        </header>
-        <main className="py-8">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <EmoticonManager />
-            </div>
-        </main>
-    </div>
-);
+            </header>
+            <main className="py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+                    {/* 전체 대화 관리 (접기/펼치기 가능) */}
+                    <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+                        <button
+                            className="w-full flex justify-between items-center p-4 text-left"
+                            onClick={() => toggleSection('chat')}
+                            aria-expanded={isOpen.chat}
+                        >
+                            <h2 className="text-lg font-semibold">전체 대화 관리</h2>
+                            <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${isOpen.chat ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isOpen.chat && (
+                            <div className="border-t">
+                                <ChatMessageManager />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 이모티콘 관리 (접기/펼치기 가능) */}
+                    <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+                        <button
+                            className="w-full flex justify-between items-center p-4 text-left"
+                            onClick={() => toggleSection('emoticon')}
+                            aria-expanded={isOpen.emoticon}
+                        >
+                            <h2 className="text-lg font-semibold">이모티콘 관리</h2>
+                            <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${isOpen.emoticon ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isOpen.emoticon && (
+                            <div className="border-t">
+                                <EmoticonManager />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+};
 
 
 // 어드민 메인 페이지
