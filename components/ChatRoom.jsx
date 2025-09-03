@@ -1,10 +1,10 @@
-// components/ChatRoom.jsx
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
 import useChatStore from '@/store/chat-store';
 import { useChatData } from '@/hooks/useChatData';
 import { useBot } from '@/hooks/useBot';
+import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { sendMessage, deleteMessage, compressAndUploadImage } from '@/lib/firebase/firebaseService';
 import { signOut, auth } from '@/lib/firebase/clientApp';
 
@@ -22,10 +22,10 @@ import MessageItem from './MessageItem';
 import ImageModal from './ImageModal';
 import EmoticonPicker from './EmoticonPicker';
 import ProfileModal from './ProfileModal';
-
+import TypingIndicator from './TypingIndicator';
 
 const ChatRoom = () => {
-  const { authUser, chatUser, messages, isBotActive, toggleBotActive, users } = useChatStore();
+  const { authUser, chatUser, messages, isBotActive, toggleBotActive, users, typingUsers } = useChatStore();
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -37,9 +37,10 @@ const ChatRoom = () => {
   const emoticonPickerRef = useRef(null);
   const emoticonButtonRef = useRef(null);
   
-  // Custom hooks for data fetching and bot logic
+  // Custom hooks
   useChatData();
   useBot();
+  const { handleTyping } = useTypingIndicator();
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
@@ -48,7 +49,7 @@ const ChatRoom = () => {
     if (scrollTargetRef.current) {
       scrollTargetRef.current.scrollIntoView({ behavior: 'auto' });
     }
-  }, [messages]);
+  }, [messages, typingUsers]); // typingUsers 추가
 
   // Click outside handler for emoticon picker
   useEffect(() => {
@@ -91,6 +92,7 @@ const ChatRoom = () => {
   };
 
   const handleEmoticonSend = (imageUrl) => {
+    setIsEmoticonPickerOpen(false);
     handleSendMessage(null, imageUrl, 'emoticon');
   };
   
@@ -172,6 +174,7 @@ const ChatRoom = () => {
               chatUser={chatUser}
             />
           ))}
+          {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />}
           <div ref={scrollTargetRef} />
         </div>
       </ScrollArea>
@@ -193,6 +196,7 @@ const ChatRoom = () => {
             <Textarea 
               value={newMessage} 
               onChange={(e) => setNewMessage(e.target.value)} 
+              onInput={handleTyping}
               placeholder="메시지를 입력하세요..." 
               className="pr-12 resize-none rounded-xl border-gray-300 focus:border-yellow-400 focus:ring-yellow-400 bg-white" 
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit(e); } }} 
