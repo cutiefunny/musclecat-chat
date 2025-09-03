@@ -1,15 +1,15 @@
+// app/page.js
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import useChatStore from "@/store/chat-store";
+import { useAuth } from "@/hooks/useAuth";
 import ChatRoom from "@/components/ChatRoom";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { auth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, db, doc, setDoc, getDoc } from "@/lib/firebase/clientApp";
+import { signOut, auth } from "@/lib/firebase/clientApp";
 
-// --- 화면별 컴포넌트 ---
 
-// 1. 로그인 화면
 const LoginScreen = ({ handleLogin }) => (
   <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
     <div className="text-center p-10 bg-white rounded-2xl shadow-xl max-w-sm w-full">
@@ -33,81 +33,26 @@ const LoginScreen = ({ handleLogin }) => (
   </main>
 );
 
-// --- 메인 페이지 ---
-
 export default function Home() {
-  const { authUser, setAuthUser, chatUser, setChatUser } = useChatStore();
-  const [loading, setLoading] = useState(true);
+  const { chatUser } = useChatStore();
+  const { authUser, loading, handleLogin } = useAuth();
 
-  // Firebase 인증 상태 감지
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Firestore에서 사용자 정보 가져오기 또는 생성
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            email: user.email
-          });
-        }
-        const userData = userSnap.exists() ? userSnap.data() : { displayName: user.displayName, photoURL: user.photoURL };
-
-        setAuthUser({ 
-          uid: user.uid, 
-          email: user.email, 
-          displayName: userData.displayName, 
-          photoURL: userData.photoURL 
-        });
-
-        // 이메일 주소에 따라 역할 자동 할당
-        const role = user.email === 'cutiefunny@gmail.com' ? 'owner' : 'customer';
-        setChatUser({ 
-          uid: role, 
-          name: userData.displayName, 
-          authUid: user.uid 
-        });
-        
-      } else {
-        setAuthUser(null);
-        setChatUser(null);
-      }
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [setAuthUser, setChatUser]);
-  
-  // 구글 로그인 핸들러
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      // onAuthStateChanged가 나머지를 처리합니다.
-    } catch (error) {
-      console.error("Login failed:", error);
-    }
-  };
-  
   if (loading) {
     return <main className="flex items-center justify-center min-h-screen"><p>인증 정보를 확인하는 중...</p></main>;
   }
 
-  // 1. 로그인 안됨 -> 로그인 화면
   if (!authUser) {
     return <LoginScreen handleLogin={handleLogin} />;
   }
-
-  // 2. 로그인 됨 -> 채팅방 (chatUser는 자동으로 설정됨)
-  if (chatUser) {
-    return (
-      <main className="h-screen w-screen overflow-hidden">
-        <ChatRoom />
-      </main>
-    );
+  
+  // chatUser가 설정될 때까지 기다립니다.
+  if (!chatUser) {
+    return <main className="flex items-center justify-center min-h-screen"><p>사용자 정보를 설정하는 중...</p></main>;
   }
 
-  // chatUser가 설정되기를 기다리는 동안 로딩 표시
-  return <main className="flex items-center justify-center min-h-screen"><p>사용자 정보를 설정하는 중...</p></main>;
+  return (
+    <main className="h-screen w-screen overflow-hidden">
+      <ChatRoom />
+    </main>
+  );
 }

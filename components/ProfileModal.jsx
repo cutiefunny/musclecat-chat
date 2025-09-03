@@ -1,13 +1,13 @@
+// components/ProfileModal.jsx
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
 import useChatStore from '@/store/chat-store';
-import { db, storage, doc, updateDoc, ref, uploadBytes, getDownloadURL } from '@/lib/firebase/clientApp';
+import { updateUserProfile, compressAndUploadImage } from '@/lib/firebase/firebaseService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { X, Loader2, Edit2 } from 'lucide-react';
-import imageCompression from 'browser-image-compression';
 
 const ProfileModal = ({ onClose }) => {
   const { authUser, users } = useChatStore();
@@ -20,18 +20,14 @@ const ProfileModal = ({ onClose }) => {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    // newImage가 변경될 때마다 previewUrl 업데이트
     if (newImage) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result);
-      };
+      reader.onloadend = () => setPreviewUrl(reader.result);
       reader.readAsDataURL(newImage);
     } else {
       setPreviewUrl(currentUserProfile?.photoURL || null);
     }
   }, [newImage, currentUserProfile]);
-
 
   const handleImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -43,28 +39,15 @@ const ProfileModal = ({ onClose }) => {
     if (!authUser) return;
     setIsSaving(true);
     
-    let photoURL = currentUserProfile?.photoURL;
-
     try {
-      // 1. 새 이미지가 있으면 업로드
+      let photoURL = currentUserProfile?.photoURL;
       if (newImage) {
-        const options = {
-            maxSizeMB: 0.2, // 200KB
-            maxWidthOrHeight: 256,
-            useWebWorker: true,
-            fileType: 'image/webp'
-        };
-        const compressedFile = await imageCompression(newImage, options);
-        const imageRef = ref(storage, `profile_pictures/${authUser.uid}`);
-        const snapshot = await uploadBytes(imageRef, compressedFile);
-        photoURL = await getDownloadURL(snapshot.ref);
+        photoURL = await compressAndUploadImage(newImage, `profile_pictures`);
       }
       
-      // 2. Firestore 문서 업데이트
-      const userDocRef = doc(db, 'users', authUser.uid);
-      await updateDoc(userDocRef, {
+      await updateUserProfile(authUser.uid, {
         displayName: displayName,
-        photoURL: photoURL
+        photoURL: photoURL,
       });
 
       alert("프로필이 성공적으로 업데이트되었습니다.");
@@ -77,7 +60,6 @@ const ProfileModal = ({ onClose }) => {
       setIsSaving(false);
     }
   };
-
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>

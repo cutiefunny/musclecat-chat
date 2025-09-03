@@ -1,12 +1,14 @@
+// app/admin/page.js
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useAuth } from "@/hooks/useAuth"; // useAuth 훅 import
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { auth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "@/lib/firebase/clientApp";
+import { signOut, auth } from "@/lib/firebase/clientApp";
 import EmoticonManager from "@/components/EmoticonManager";
 import ChatMessageManager from "@/components/ChatMessageManager";
-import { ChevronDown } from "lucide-react"; // 아이콘 import 추가
+import { ChevronDown } from "lucide-react";
 
 // 로그인 화면 컴포넌트
 const LoginScreen = ({ handleLogin }) => (
@@ -34,13 +36,11 @@ const LoginScreen = ({ handleLogin }) => (
 
 // 어드민 대시보드 컴포넌트 (로그인 후)
 const AdminDashboard = ({ user }) => {
-    // 섹션별 열림 상태를 관리하는 state
     const [isOpen, setIsOpen] = useState({
-        chat: false,
+        chat: true, // 기본적으로 열려있도록 변경
         emoticon: false,
     });
 
-    // 섹션 열림/닫힘 토글 함수
     const toggleSection = (section) => {
         setIsOpen(prev => ({ ...prev, [section]: !prev[section] }));
     };
@@ -60,7 +60,6 @@ const AdminDashboard = ({ user }) => {
             </header>
             <main className="py-8">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-                    {/* 전체 대화 관리 (접기/펼치기 가능) */}
                     <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
                         <button
                             className="w-full flex justify-between items-center p-4 text-left"
@@ -77,7 +76,6 @@ const AdminDashboard = ({ user }) => {
                         )}
                     </div>
 
-                    {/* 이모티콘 관리 (접기/펼치기 가능) */}
                     <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
                         <button
                             className="w-full flex justify-between items-center p-4 text-left"
@@ -88,7 +86,7 @@ const AdminDashboard = ({ user }) => {
                             <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${isOpen.emoticon ? 'rotate-180' : ''}`} />
                         </button>
                         {isOpen.emoticon && (
-                            <div className="border-t">
+                            <div className="border-t p-6">
                                 <EmoticonManager />
                             </div>
                         )}
@@ -99,42 +97,29 @@ const AdminDashboard = ({ user }) => {
     );
 };
 
-
 // 어드민 메인 페이지
 export default function AdminPage() {
-  const [authUser, setAuthUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { authUser, loading, handleLogin } = useAuth(); // useAuth 훅 사용
 
-  // Firebase 인증 상태 감지
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setAuthUser(user);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-  
-  // 구글 로그인 핸들러
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login failed:", error);
-      alert("로그인에 실패했습니다.");
-    }
-  };
-  
   if (loading) {
     return <main className="flex items-center justify-center min-h-screen"><p>인증 정보를 확인하는 중...</p></main>;
   }
 
-  // 로그인 되어있지 않으면 로그인 화면 표시
+  // 관리자 이메일인지 확인합니다.
+  const isAdmin = authUser && authUser.email === 'cutiefunny@gmail.com';
+
   if (!authUser) {
     return <LoginScreen handleLogin={handleLogin} />;
   }
+  
+  if (!isAdmin) {
+      return (
+          <main className="flex flex-col items-center justify-center min-h-screen">
+              <p className="text-2xl font-bold mb-4">접근 권한이 없습니다.</p>
+              <Button onClick={() => signOut(auth)}>로그아웃</Button>
+          </main>
+      )
+  }
 
-  // 로그인 되어 있으면 어드민 대시보드 표시
   return <AdminDashboard user={authUser} />;
 }
-

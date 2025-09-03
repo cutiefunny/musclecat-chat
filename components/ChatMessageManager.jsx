@@ -1,9 +1,12 @@
+// components/ChatMessageManager.jsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { db, collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, deleteObject, ref, storage } from '@/lib/firebase/clientApp';
+// 💡 수정된 부분: db, doc, updateDoc을 clientApp에서 직접 import 합니다.
+import { subscribeToMessages, deleteMessage } from '@/lib/firebase/firebaseService';
+import { db, doc, updateDoc } from '@/lib/firebase/clientApp'; 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Trash2, Edit, Save, X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
@@ -17,16 +20,9 @@ const ChatMessageManager = () => {
     const messagesPerPage = 10;
 
     useEffect(() => {
-        const q = query(collection(db, "messages"), orderBy("timestamp", "desc"));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const messagesData = [];
-            querySnapshot.forEach((doc) => {
-                messagesData.push({ id: doc.id, ...doc.data() });
-            });
-            setMessages(messagesData);
-            setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching messages: ", error);
+        const unsubscribe = subscribeToMessages((messagesData) => {
+            // Reverse messages to show latest first
+            setMessages(messagesData.reverse());
             setIsLoading(false);
         });
         return () => unsubscribe();
@@ -34,19 +30,8 @@ const ChatMessageManager = () => {
 
     const handleDelete = async (message) => {
         if (!window.confirm("정말로 이 메시지를 삭제하시겠습니까?")) return;
-
         try {
-            // Firestore 문서 삭제
-            await deleteDoc(doc(db, "messages", message.id));
-
-            // Storage에 이미지가 있는 경우 함께 삭제 (사진 또는 이모티콘)
-            if (message.imageUrl) {
-                 // GCS URL에서 경로 추출
-                const imagePath = new URL(message.imageUrl).pathname.split('/o/')[1].split('?')[0];
-                const decodedPath = decodeURIComponent(imagePath);
-                const imageRef = ref(storage, decodedPath);
-                await deleteObject(imageRef);
-            }
+            await deleteMessage(message);
         } catch (error) {
             console.error("Error deleting message:", error);
             alert("메시지 삭제에 실패했습니다.");
@@ -65,9 +50,7 @@ const ChatMessageManager = () => {
         }
         try {
             const messageRef = doc(db, "messages", messageId);
-            await updateDoc(messageRef, {
-                text: editingText
-            });
+            await updateDoc(messageRef, { text: editingText });
             setEditingMessageId(null);
             setEditingText('');
         } catch (error) {
@@ -75,7 +58,7 @@ const ChatMessageManager = () => {
             alert("메시지 수정에 실패했습니다.");
         }
     };
-
+    
     const formatTimestamp = (timestamp) => {
         if (!timestamp || !timestamp.toDate) return '시간 정보 없음';
         return timestamp.toDate().toLocaleString('ko-KR');
@@ -176,4 +159,3 @@ const ChatMessageManager = () => {
 };
 
 export default ChatMessageManager;
-

@@ -1,12 +1,12 @@
+// components/EmoticonManager.jsx
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { db, storage, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, doc, ref, uploadBytes, getDownloadURL, deleteObject, writeBatch, serverTimestamp } from '@/lib/firebase/clientApp';
+import { subscribeToEmoticons, addEmoticon, deleteEmoticon, updateEmoticonOrder } from '@/lib/firebase/firebaseService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Trash2, Loader2, GripVertical } from 'lucide-react';
 import Image from 'next/image';
-import imageCompression from 'browser-image-compression';
 
 const EmoticonManager = () => {
     const [emoticons, setEmoticons] = useState([]);
@@ -16,71 +16,40 @@ const EmoticonManager = () => {
     const dragItem = useRef(null);
     const dragOverItem = useRef(null);
 
-    // Firestore에서 이모티콘 데이터 실시간 수신
     useEffect(() => {
-        const q = query(collection(db, "emoticons"), orderBy("order", "asc"));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const emoticonsData = [];
-            querySnapshot.forEach((doc) => {
-                emoticonsData.push({ id: doc.id, ...doc.data() });
-            });
+        const unsubscribe = subscribeToEmoticons((emoticonsData) => {
             setEmoticons(emoticonsData);
             setIsLoading(false);
         });
         return () => unsubscribe();
     }, []);
 
-    // 이미지 파일 업로드 핸들러
     const handleFileUpload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
         setIsUploading(true);
         try {
-            const options = {
-                maxSizeKB: 100,
-                maxWidthOrHeight: 200, // 최대 길이 200px
-                useWebWorker: true,
-                fileType: 'image/avif', // AVIF 형식으로 압축
-            };
-            const compressedFile = await imageCompression(file, options);
-            const storageRef = ref(storage, `emoticons/${Date.now()}_${compressedFile.name}`);
-            const snapshot = await uploadBytes(storageRef, compressedFile);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-
-            await addDoc(collection(db, "emoticons"), {
-                url: downloadURL,
-                order: emoticons.length, // 현재 이모티콘 개수를 순서로 지정
-                createdAt: serverTimestamp(),
-            });
+            await addEmoticon(file, emoticons.length);
         } catch (error) {
             console.error("Error uploading emoticon:", error);
             alert("이모티콘 업로드에 실패했습니다.");
         } finally {
             setIsUploading(false);
-            // 파일 입력 값 초기화
             if(fileInputRef.current) fileInputRef.current.value = "";
         }
     };
     
-    // 이모티콘 삭제 핸들러
     const handleDelete = async (emoticon) => {
         if (!confirm("정말로 이모티콘을 삭제하시겠습니까?")) return;
         try {
-            // Firestore 문서 삭제
-            await deleteDoc(doc(db, "emoticons", emoticon.id));
-            // Storage 파일 삭제
-            const imagePath = new URL(emoticon.url).pathname.split('/o/')[1].split('?')[0];
-            const decodedPath = decodeURIComponent(imagePath);
-            const imageRef = ref(storage, decodedPath);
-            await deleteObject(imageRef);
+            await deleteEmoticon(emoticon);
         } catch (error) {
             console.error("Error deleting emoticon:", error);
             alert("이모티콘 삭제에 실패했습니다.");
         }
     };
     
-    // 드래그 순서 변경 후 Firestore에 순서 업데이트
     const handleSortUpdate = async () => {
         const newEmoticons = [...emoticons];
         const draggedItemContent = newEmoticons.splice(dragItem.current, 1)[0];
@@ -89,26 +58,31 @@ const EmoticonManager = () => {
         dragItem.current = null;
         dragOverItem.current = null;
 
-        setEmoticons(newEmoticons);
-
-        const batch = writeBatch(db);
-        newEmoticons.forEach((emoticon, index) => {
-            const docRef = doc(db, "emoticons", emoticon.id);
-            batch.update(docRef, { order: index });
-        });
-        await batch.commit().catch(err => console.error("순서 업데이트 실패:", err));
+        setEmoticons(newEmoticons); // Optimistic UI update
+        
+        try {
+            await updateEmoticonOrder(newEmoticons);
+        } catch (err) {
+            console.error("순서 업데이트 실패:", err);
+            // Revert UI if update fails
+            // For simplicity, we can just refetch or notify user
+        }
     };
 
-
     if (isLoading) {
-        return <div className="flex justify-center items-center"><Loader2 className="animate-spin h-8 w-8" /></div>;
+        return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin h-8 w-8" /></div>;
     }
 
     return (
-        <Card className="w-full max-w-4xl mx-auto mt-8">
-            <CardHeader>
-                <CardTitle className="flex justify-between items-center">
-                    <span>이모티콘 관리</span>
+        <Card className="w-full max-w-4xl mx-auto border-0 shadow-none">
+            <CardHeader className="pt-0">
+                {/* Title is now in the parent component */}
+            </CardHeader>
+            <CardContent>
+                <div className="flex justify-between items-center mb-4">
+                    <p className="text-sm text-muted-foreground">
+                        이미지를 드래그하여 순서를 변경할 수 있습니다.
+                    </p>
                     <input
                         type="file"
                         accept="image/*"
@@ -120,16 +94,10 @@ const EmoticonManager = () => {
                         {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                         이모티콘 추가
                     </Button>
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                    이미지를 드래그하여 순서를 변경할 수 있습니다. 이미지는 최대 200px 길이의 AVIF 형식으로 자동 변환됩니다.
-                </p>
+                </div>
                 {emoticons.length === 0 ? (
                     <div className="text-center py-12 border-2 border-dashed rounded-lg">
                         <p>등록된 이모티콘이 없습니다.</p>
-                        <p className="text-sm text-muted-foreground">오른쪽 위 버튼을 눌러 추가해주세요.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-4">
@@ -149,7 +117,7 @@ const EmoticonManager = () => {
                                     width={100}
                                     height={100}
                                     className="object-contain w-full h-full"
-                                    unoptimized // AVIF, GIF 등 최적화 없이 원본 사용
+                                    unoptimized
                                 />
                                 <Button
                                     variant="destructive"

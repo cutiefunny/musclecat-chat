@@ -1,39 +1,56 @@
+// components/ChatRoom.jsx
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { db, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, signOut, auth, storage, ref, uploadBytes, getDownloadURL, doc, deleteDoc, deleteObject } from '@/lib/firebase/clientApp';
 import useChatStore from '@/store/chat-store';
+import { useChatData } from '@/hooks/useChatData';
+import { useBot } from '@/hooks/useBot';
+import { sendMessage, deleteMessage, compressAndUploadImage } from '@/lib/firebase/firebaseService';
+import { signOut, auth } from '@/lib/firebase/clientApp';
+
+// UI Components
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, LogOut, Loader2, Smile, User } from 'lucide-react';
+
+// Other Components
 import CameraCapture from './CameraCapture';
-import imageCompression from 'browser-image-compression';
 import MessageItem from './MessageItem';
 import ImageModal from './ImageModal';
 import EmoticonPicker from './EmoticonPicker';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ProfileModal from './ProfileModal';
 
 
 const ChatRoom = () => {
-  const { authUser, chatUser, messages, setMessages, isBotActive, toggleBotActive, setUsers, users } = useChatStore();
+  const { authUser, chatUser, messages, isBotActive, toggleBotActive, users } = useChatStore();
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
   const [isEmoticonPickerOpen, setIsEmoticonPickerOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  
   const scrollTargetRef = useRef(null);
   const emoticonPickerRef = useRef(null);
   const emoticonButtonRef = useRef(null);
-  const lastProcessedMessageId = useRef(null);
   
+  // Custom hooks for data fetching and bot logic
+  useChatData();
+  useBot();
+
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollTargetRef.current) {
+      scrollTargetRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [messages]);
 
+  // Click outside handler for emoticon picker
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -50,111 +67,24 @@ const ChatRoom = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-  
-  useEffect(() => {
-    if (!db) return;
-  
-    // 사용자 목록 실시간 감지
-    const usersQuery = query(collection(db, 'users'));
-    const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
-      const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setUsers(usersData);
-    });
-  
-    // 메시지 목록 실시간 감지
-    const messagesQuery = query(collection(db, 'messages'), orderBy('timestamp', 'asc'));
-    const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setMessages(msgs);
-    }, (error) => {
-      console.error("Error fetching messages: ", error);
-    });
-  
-    return () => {
-      unsubscribeUsers();
-      unsubscribeMessages();
-    };
-  }, [setMessages, setUsers]);
-  
-  useEffect(() => {
-    if (messages.length === 0 || !isBotActive) return;
-
-    const lastMessage = messages[messages.length - 1];
-
-    if (
-      lastMessage &&
-      lastMessage.uid === 'customer' &&
-      lastMessage.type === 'text' &&
-      lastMessage.id !== lastProcessedMessageId.current
-    ) {
-      lastProcessedMessageId.current = lastMessage.id;
-
-      const fetchBotResponseAndSendMessage = async (prompt) => {
-        try {
-            prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ' + prompt;
-          const response = await fetch('https://musclecat.co.kr/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt }),
-          });
-
-          if (!response.ok) throw new Error('Network response was not ok');
-          
-          const botResponseText = await response.text(); 
-
-          if (botResponseText) {
-            await addDoc(collection(db, 'messages'), {
-              text: botResponseText,
-              imageUrl: null,
-              type: 'text',
-              sender: '근육고양이봇',
-              uid: 'bot-01',
-              authUid: 'bot-01',
-              timestamp: serverTimestamp()
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching bot response: ", error);
-        }
-      };
-      
-      setTimeout(() => fetchBotResponseAndSendMessage(lastMessage.text), 1000);
-    }
-  }, [messages, isBotActive]);
-
-  useEffect(() => {
-    if (scrollTargetRef.current) {
-      scrollTargetRef.current.scrollIntoView({ behavior: 'auto' });
-    }
-  }, [messages]);
-    
-  const handleImageClick = (imageUrl) => {
-    setSelectedImageUrl(imageUrl);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedImageUrl(null);
-  };
 
   const handleSendMessage = async (text, imageUrl = null, type = 'text') => {
     if (!text?.trim() && !imageUrl) return;
-    if (!chatUser || !authUser) return;
-    try {
-      await addDoc(collection(db, 'messages'), { 
-        text, 
-        imageUrl, 
+    
+    await sendMessage({
+        text,
+        imageUrl,
         type,
-        sender: chatUser.name, 
-        uid: chatUser.uid, 
-        authUid: authUser.uid, 
-        timestamp: serverTimestamp() 
-      });
-      if (type === 'text') {
-        setNewMessage('');
-      }
-    } catch (error) { console.error("Error sending message: ", error); }
-  };
+        sender: chatUser.name,
+        uid: chatUser.uid,
+        authUid: authUser.uid,
+    });
 
+    if (type === 'text') {
+      setNewMessage('');
+    }
+  };
+  
   const handleTextSubmit = (e) => {
     e.preventDefault();
     handleSendMessage(newMessage, null, 'text');
@@ -164,15 +94,10 @@ const ChatRoom = () => {
     handleSendMessage(null, imageUrl, 'emoticon');
   };
   
-  const handleDeleteMessage = async (msgToDelete) => {
-    if (!msgToDelete || !msgToDelete.id) return;
+  const handleDelete = async (msgToDelete) => {
     if (confirm("메시지를 삭제하시겠습니까?")) {
       try {
-        await deleteDoc(doc(db, 'messages', msgToDelete.id));
-        if (msgToDelete.imageUrl && msgToDelete.type === 'photo') {
-          const imageRef = ref(storage, msgToDelete.imageUrl);
-          await deleteObject(imageRef);
-        }
+        await deleteMessage(msgToDelete);
       } catch (error) {
         console.error("Error deleting message: ", error);
         alert("메시지 삭제에 실패했습니다.");
@@ -181,28 +106,12 @@ const ChatRoom = () => {
   };
 
   const handleCapture = async (imageBlob) => {
-    if (!authUser || !chatUser) return;
     setIsUploading(true);
-    
-    const options = {
-      maxSizeKB: 50,
-      maxWidthOrHeight: 400,
-      useWebWorker: true,
-      fileType: 'image/avif',
-    };
-
     try {
-      const compressedBlob = await imageCompression(imageBlob, options);
-      const finalBlob = compressedBlob.size < imageBlob.size ? compressedBlob : imageBlob;
-      const fileExtension = finalBlob.type === 'image/avif' ? 'avif' : 'jpeg';
-      const storageRef = ref(storage, `chat_images/${authUser.uid}/${Date.now()}.${fileExtension}`);
-      const snapshot = await uploadBytes(storageRef, finalBlob);
-      const imageUrl = await getDownloadURL(snapshot.ref);
-      
+      const imageUrl = await compressAndUploadImage(imageBlob, `chat_images/${authUser.uid}`);
       await handleSendMessage('', imageUrl, 'photo');
-
     } catch (error) {
-      console.error("Image compression or upload error: ", error);
+      console.error("Image processing or upload error: ", error);
       alert("이미지 처리 중 오류가 발생했습니다.");
     } finally {
       setIsUploading(false);
@@ -215,7 +124,7 @@ const ChatRoom = () => {
 
   return (
     <div className="flex flex-col h-full w-full bg-[#b2c7dc]">
-      <header className="p-4 border-b bg-white flex items-center justify-between shadow-sm z-10">
+       <header className="p-4 border-b bg-white flex items-center justify-between shadow-sm z-10">
         <h1 className="text-lg font-bold text-gray-800">근육고양이 채팅방</h1>
         <div className="flex items-center gap-4">
           {chatUser.uid === 'owner' && (
@@ -258,8 +167,8 @@ const ChatRoom = () => {
               msg={msg}
               isMyMessage={msg.authUid === authUser.uid}
               showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01'}
-              onDelete={handleDeleteMessage}
-              onImageClick={handleImageClick}
+              onDelete={handleDelete}
+              onImageClick={setSelectedImageUrl}
               chatUser={chatUser}
             />
           ))}
@@ -307,7 +216,7 @@ const ChatRoom = () => {
       </div>
 
       {isCameraOpen && <CameraCapture onCapture={handleCapture} onClose={() => setIsCameraOpen(false)} />}
-      <ImageModal imageUrl={selectedImageUrl} onClose={handleCloseModal} />
+      <ImageModal imageUrl={selectedImageUrl} onClose={() => setSelectedImageUrl(null)} />
       {isProfileModalOpen && <ProfileModal onClose={() => setIsProfileModalOpen(false)} />}
     </div>
   );
