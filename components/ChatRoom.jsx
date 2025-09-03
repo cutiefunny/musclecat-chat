@@ -7,24 +7,32 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Camera, LogOut, Loader2, Smile } from 'lucide-react';
+import { Camera, LogOut, Loader2, Smile, User } from 'lucide-react';
 import CameraCapture from './CameraCapture';
 import imageCompression from 'browser-image-compression';
 import MessageItem from './MessageItem';
 import ImageModal from './ImageModal';
 import EmoticonPicker from './EmoticonPicker';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import ProfileModal from './ProfileModal';
+
 
 const ChatRoom = () => {
-  const { authUser, chatUser, messages, setMessages, isBotActive, toggleBotActive } = useChatStore();
+  const { authUser, chatUser, messages, setMessages, isBotActive, toggleBotActive, setUsers, users } = useChatStore();
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
   const [isEmoticonPickerOpen, setIsEmoticonPickerOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const scrollTargetRef = useRef(null);
   const emoticonPickerRef = useRef(null);
   const emoticonButtonRef = useRef(null);
   const lastProcessedMessageId = useRef(null);
+  
+  const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
+
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -42,19 +50,32 @@ const ChatRoom = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
+  
   useEffect(() => {
     if (!db) return;
-    const q = query(collection(db, 'messages'), orderBy('timestamp', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+  
+    // 사용자 목록 실시간 감지
+    const usersQuery = query(collection(db, 'users'));
+    const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsers(usersData);
+    });
+  
+    // 메시지 목록 실시간 감지
+    const messagesQuery = query(collection(db, 'messages'), orderBy('timestamp', 'asc'));
+    const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setMessages(msgs);
     }, (error) => {
-        console.error("Error fetching messages: ", error);
+      console.error("Error fetching messages: ", error);
     });
-    return () => unsubscribe();
-  }, [setMessages]);
-
+  
+    return () => {
+      unsubscribeUsers();
+      unsubscribeMessages();
+    };
+  }, [setMessages, setUsers]);
+  
   useEffect(() => {
     if (messages.length === 0 || !isBotActive) return;
 
@@ -62,7 +83,7 @@ const ChatRoom = () => {
 
     if (
       lastMessage &&
-      lastMessage.uid === 'customer-01' &&
+      lastMessage.uid === 'customer' &&
       lastMessage.type === 'text' &&
       lastMessage.id !== lastProcessedMessageId.current
     ) {
@@ -88,6 +109,7 @@ const ChatRoom = () => {
               type: 'text',
               sender: '근육고양이봇',
               uid: 'bot-01',
+              authUid: 'bot-01',
               timestamp: serverTimestamp()
             });
           }
@@ -196,13 +218,35 @@ const ChatRoom = () => {
       <header className="p-4 border-b bg-white flex items-center justify-between shadow-sm z-10">
         <h1 className="text-lg font-bold text-gray-800">근육고양이 채팅방</h1>
         <div className="flex items-center gap-4">
-          {chatUser.uid === 'owner-01' && (
+          {chatUser.uid === 'owner' && (
             <Button onClick={toggleBotActive} variant="outline" size="sm">
               {isBotActive ? '봇 ON' : '봇 OFF'}
             </Button>
           )}
-          <p className="text-sm text-gray-500"><span className="font-semibold">{chatUser.name}</span>님으로 접속</p>
-          <Button variant="ghost" size="icon" onClick={() => signOut(auth)} title="로그아웃"><LogOut className="size-4" /></Button>
+          <p className="text-sm text-gray-500 hidden sm:block">
+            <span className="font-semibold">{currentUserProfile?.displayName || '사용자'}</span>
+            ({chatUser.uid === 'owner' ? '사장' : '고객'})님
+          </p>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <Avatar className="size-8 cursor-pointer">
+                <AvatarImage src={currentUserProfile?.photoURL} alt={currentUserProfile?.displayName} />
+                <AvatarFallback>{currentUserProfile?.displayName?.charAt(0) || '?'}</AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setIsProfileModalOpen(true)}>
+                <User className="mr-2 h-4 w-4" />
+                <span>프로필 수정</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => signOut(auth)}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>로그아웃</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
         </div>
       </header>
 
@@ -212,8 +256,8 @@ const ChatRoom = () => {
             <MessageItem
               key={msg.id}
               msg={msg}
-              isMyMessage={msg.uid === chatUser.uid}
-              showAvatar={index === 0 || messages[index - 1].uid !== msg.uid}
+              isMyMessage={msg.authUid === authUser.uid}
+              showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01'}
               onDelete={handleDeleteMessage}
               onImageClick={handleImageClick}
               chatUser={chatUser}
@@ -263,8 +307,8 @@ const ChatRoom = () => {
       </div>
 
       {isCameraOpen && <CameraCapture onCapture={handleCapture} onClose={() => setIsCameraOpen(false)} />}
-      
       <ImageModal imageUrl={selectedImageUrl} onClose={handleCloseModal} />
+      {isProfileModalOpen && <ProfileModal onClose={() => setIsProfileModalOpen(false)} />}
     </div>
   );
 };
