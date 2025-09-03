@@ -1,3 +1,4 @@
+// components/MessageItem.jsx
 "use client";
 
 import React from 'react';
@@ -12,6 +13,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import NextImage from 'next/image';
 import { cn, formatKakaoTime } from '@/lib/utils';
+import GifPlayer from './GifPlayer'; // ⏹️ GifPlayer 컴포넌트를 import 합니다.
 
 const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, chatUser }) => {
   const { users } = useChatStore();
@@ -48,14 +50,9 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, cha
           <div className={cn("flex items-end gap-1", isMyMessage ? "flex-row-reverse" : "flex-row")}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <div className="relative w-[150px] h-[150px] cursor-pointer">
-                  <NextImage
-                    src={msg.imageUrl}
-                    alt="emoticon"
-                    layout="fill"
-                    className="object-contain"
-                    unoptimized
-                  />
+                {/* ⏹️ 기존 NextImage 대신 GifPlayer 컴포넌트를 사용합니다. */}
+                <div className="w-[150px] h-[150px]">
+                    <GifPlayer src={msg.imageUrl} alt="emoticon" />
                 </div>
               </DropdownMenuTrigger>
               {canDelete && (
