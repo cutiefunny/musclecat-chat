@@ -1,6 +1,6 @@
 # 💪 근육고양이 채팅앱
 
-![Project Screenshot](public/images/screenshot.png)
+![Project Screenshot](public/images/screenshot.jpg)
 
 실시간으로 소통하는 즐거움을 선사하는 근육고양이 채팅 애플리케이션입니다. Next.js와 Firebase를 기반으로 제작되어 사용자 인증부터 실시간 메시징, 사진 및 이모티콘 전송, 관리자 기능까지 다양한 기능을 제공합니다.
 
