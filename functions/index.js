@@ -5,12 +5,14 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { setGlobalOptions } = require("firebase-functions/v2");
+const fetch = require("node-fetch"); // 💡 node-fetch 추가
+
+// 함수의 리전을 서울(asia-northeast3)으로 설정
 setGlobalOptions({ region: "asia-northeast3" });
 
 initializeApp();
 
-exports.sendPushNotificationOnNewMessage = onDocumentCreated("messages/{messageId}", async (event) => {
-    // 이벤트 데이터에서 새로 생성된 메시지 스냅샷을 가져옵니다.
+exports.handleNewMessage = onDocumentCreated("messages/{messageId}", async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
         console.log("No data associated with the event");
@@ -18,23 +20,32 @@ exports.sendPushNotificationOnNewMessage = onDocumentCreated("messages/{messageI
     }
     const newMessage = snapshot.data();
 
-    // 고객이 보낸 메시지일 경우에만 알림을 보냅니다.
+    // 고객이 보낸 메시지가 아니면 아무 작업도 하지 않음
     if (newMessage.uid !== "customer") {
-        console.log("Not a customer message, skipping notification.");
         return;
     }
+    
+    // 💡 두 가지 작업을 동시에 처리: 푸시 알림과 봇 응답
+    await Promise.all([
+        sendPushNotificationToOwner(newMessage),
+        sendBotReply(newMessage)
+    ]);
+});
 
-    // 1. 사장님(owner)의 사용자 정보를 가져옵니다.
+
+/**
+ * 사장님에게 푸시 알림을 보냅니다.
+ * @param {object} message - 새 메시지 데이터
+ */
+async function sendPushNotificationToOwner(message) {
     const db = getFirestore();
     const usersRef = db.collection("users");
-    // 'owner' 역할을 가진 사용자를 쿼리하는 것이 더 안정적이지만, 여기서는 이메일로 찾습니다.
     const ownerQuery = usersRef.where("email", "==", "cutiefunny@gmail.com").limit(1);
-    
+
     try {
         const ownerSnapshot = await ownerQuery.get();
-
         if (ownerSnapshot.empty) {
-            console.log("Owner user not found.");
+            console.log("Owner user not found for push notification.");
             return;
         }
 
@@ -46,29 +57,75 @@ exports.sendPushNotificationOnNewMessage = onDocumentCreated("messages/{messageI
             return;
         }
 
-        // 2. 푸시 알림 페이로드를 구성합니다.
         const payload = {
             notification: {
-                title: `${newMessage.sender}님의 새 메시지`,
-                body: newMessage.text || (newMessage.type === 'photo' ? '사진' : '이모티콘') + '을 보냈습니다.',
-                icon: "/images/icon-144.png", // PWA 아이콘 경로
+                title: `${message.sender}님의 새 메시지`,
+                body: message.text || (message.type === 'photo' ? '사진' : '이모티콘') + '을 보냈습니다.',
+                icon: "/images/icon-144.png",
             },
             webpush: {
                 fcmOptions: {
-                    link: "https://your-chat-app-url.com/" // 알림 클릭 시 이동할 웹사이트 주소
+                    link: "https://your-chat-app-url.com/" // 💡 실제 앱 주소로 변경해주세요
                 }
             }
         };
 
-        // 3. FCM으로 알림을 전송합니다.
-        const response = await getMessaging().send({
-            token: fcmToken,
-            notification: payload.notification,
-            webpush: payload.webpush,
-        });
-        console.log("Successfully sent message:", response);
-
+        await getMessaging().send({ token: fcmToken, notification: payload.notification, webpush: payload.webpush });
+        console.log("Successfully sent push notification.");
     } catch (error) {
         console.error("Error sending push notification:", error);
     }
-});
+}
+
+/**
+ * 봇 상태를 확인하고, 활성화 상태이면 AI 응답을 보냅니다.
+ * @param {object} message - 새 메시지 데이터
+ */
+async function sendBotReply(message) {
+    const db = getFirestore();
+    const botStatusRef = db.doc("settings/bot");
+    
+    try {
+        const docSnap = await botStatusRef.get();
+        
+        // 봇이 비활성화 상태이면 여기서 함수를 종료합니다.
+        if (!docSnap.exists() || docSnap.data().isActive === false) {
+            console.log("Bot is disabled. No reply will be sent.");
+            return;
+        }
+
+        // 텍스트 메시지가 아니면 봇이 응답하지 않습니다.
+        if (message.type !== 'text' || !message.text) {
+            return;
+        }
+
+        // 봇 API 호출
+        const prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ' + message.text;
+        const response = await fetch('https://musclecat.co.kr/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Bot API request failed with status ${response.status}`);
+        }
+
+        const botResponseText = await response.text();
+
+        // 봇 응답 메시지 전송
+        if (botResponseText) {
+            await db.collection("messages").add({
+                text: botResponseText,
+                type: 'text',
+                sender: '근육고양이봇',
+                uid: 'bot-01',
+                authUid: 'bot-01',
+                timestamp: new Date()
+            });
+            console.log("Successfully sent bot reply.");
+        }
+    } catch (error) {
+        console.error("Error sending bot reply:", error);
+    }
+}
