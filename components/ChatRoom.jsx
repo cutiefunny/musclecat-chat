@@ -6,7 +6,8 @@ import useChatStore from '@/store/chat-store';
 import { useChatData } from '@/hooks/useChatData';
 import { useBot } from '@/hooks/useBot';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
-import { usePushNotifications } from '@/hooks/usePushNotifications'; // 💡 푸시 알림 훅 import
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useBotStatus } from '@/hooks/useBotStatus'; // 💡 봇 상태 훅 import
 import { sendMessage, deleteMessage, compressAndUploadImage } from '@/lib/firebase/firebaseService';
 import { signOut, auth } from '@/lib/firebase/clientApp';
 
@@ -27,7 +28,7 @@ import ProfileModal from './ProfileModal';
 import TypingIndicator from './TypingIndicator';
 
 const ChatRoom = () => {
-  const { authUser, chatUser, messages, isBotActive, toggleBotActive, users, typingUsers } = useChatStore();
+  const { authUser, chatUser, messages, users, typingUsers } = useChatStore();
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -43,7 +44,8 @@ const ChatRoom = () => {
   useChatData();
   useBot();
   const { handleTyping } = useTypingIndicator();
-  usePushNotifications(); // 💡 푸시 알림 훅 실행
+  usePushNotifications();
+  const { isBotActive, handleToggleBot } = useBotStatus();
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
@@ -52,7 +54,7 @@ const ChatRoom = () => {
     if (scrollTargetRef.current) {
       scrollTargetRef.current.scrollIntoView({ behavior: 'auto' });
     }
-  }, [messages, typingUsers]); // typingUsers 추가
+  }, [messages, typingUsers]);
 
   // Click outside handler for emoticon picker
   useEffect(() => {
@@ -133,7 +135,7 @@ const ChatRoom = () => {
         <h1 className="text-lg font-bold text-gray-800">근육고양이 채팅방</h1>
         <div className="flex items-center gap-4">
           {chatUser.uid === 'owner' && (
-            <Button onClick={toggleBotActive} variant="outline" size="sm">
+            <Button onClick={handleToggleBot} variant="outline" size="sm">
               {isBotActive ? '봇 ON' : '봇 OFF'}
             </Button>
           )}
