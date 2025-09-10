@@ -1,3 +1,4 @@
+// components/ChatRoom.jsx
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -5,6 +6,7 @@ import useChatStore from '@/store/chat-store';
 import { useChatData } from '@/hooks/useChatData';
 import { useBot } from '@/hooks/useBot';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
+import { usePushNotifications } from '@/hooks/usePushNotifications'; // 💡 푸시 알림 훅 import
 import { sendMessage, deleteMessage, compressAndUploadImage } from '@/lib/firebase/firebaseService';
 import { signOut, auth } from '@/lib/firebase/clientApp';
 
@@ -41,6 +43,7 @@ const ChatRoom = () => {
   useChatData();
   useBot();
   const { handleTyping } = useTypingIndicator();
+  usePushNotifications(); // 💡 푸시 알림 훅 실행
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
