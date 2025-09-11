@@ -7,7 +7,7 @@ import { useChatData } from '@/hooks/useChatData';
 import { useBot } from '@/hooks/useBot';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { useBotStatus } from '@/hooks/useBotStatus'; // 💡 봇 상태 훅 import
+import { useBotStatus } from '@/hooks/useBotStatus';
 import { sendMessage, deleteMessage, compressAndUploadImage } from '@/lib/firebase/firebaseService';
 import { signOut, auth } from '@/lib/firebase/clientApp';
 
@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, LogOut, Loader2, Smile, User } from 'lucide-react';
+import { Camera, LogOut, Loader2, Smile, User, X } from 'lucide-react';
 
 // Other Components
 import CameraCapture from './CameraCapture';
@@ -28,7 +28,7 @@ import ProfileModal from './ProfileModal';
 import TypingIndicator from './TypingIndicator';
 
 const ChatRoom = () => {
-  const { authUser, chatUser, messages, users, typingUsers } = useChatStore();
+  const { authUser, chatUser, messages, users, typingUsers, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId } = useChatStore();
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -84,8 +84,10 @@ const ChatRoom = () => {
         sender: chatUser.name,
         uid: chatUser.uid,
         authUid: authUser.uid,
+        replyTo: replyingToMessage ? replyingToMessage.id : null,
     });
-
+    
+    setReplyingToMessage(null);
     if (type === 'text') {
       setNewMessage('');
     }
@@ -176,13 +178,28 @@ const ChatRoom = () => {
               showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01'}
               onDelete={handleDelete}
               onImageClick={setSelectedImageUrl}
+              onReply={setReplyingToMessage}
               chatUser={chatUser}
+              highlightedMessageId={highlightedMessageId}
+              setHighlightedMessageId={setHighlightedMessageId}
             />
           ))}
           {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />}
           <div ref={scrollTargetRef} />
         </div>
       </ScrollArea>
+
+      {replyingToMessage && (
+        <div className="bg-gray-200 p-2 text-sm text-gray-700 flex justify-between items-center">
+          <div>
+            <p className="font-bold">{replyingToMessage.sender}에게 답장</p>
+            <p className="truncate">{replyingToMessage.text || (replyingToMessage.type === 'photo' ? '사진' : '이모티콘')}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={() => setReplyingToMessage(null)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       <div className="p-3 border-t bg-gray-100 sticky bottom-0">
         <form onSubmit={handleTextSubmit} className="flex items-center gap-2">
