@@ -7,19 +7,22 @@ importScripts("https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compa
 const urlParams = new URLSearchParams(location.search);
 const firebaseConfig = Object.fromEntries(urlParams.entries());
 
+if (firebaseConfig.projectId) {
+  firebase.initializeApp(firebaseConfig);
 
-firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
 
-const messaging = firebase.messaging();
-
-messaging.onBackgroundMessage((payload) => {
+  messaging.onBackgroundMessage((payload) => {
     console.log("[firebase-messaging-sw.js] Received background message ", payload);
 
     const notificationTitle = payload.notification.title;
     const notificationOptions = {
-        body: payload.notification.body,
-        icon: payload.notification.icon,
+      body: payload.notification.body,
+      icon: payload.notification.icon,
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
-});
+  });
+} else {
+  console.error('Firebase config not found in service worker.');
+}

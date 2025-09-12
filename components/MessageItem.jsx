@@ -150,7 +150,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                   <NextImage
                     src={msg.imageUrl}
                     alt="emoticon"
-                    layout="fill"
+                    fill
+                    sizes="150px"
                     className="object-contain"
                     unoptimized
                   />
@@ -208,7 +209,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
             <div className="text-gray-500 truncate flex-1">
               {repliedToMessage.type === 'emoticon' ? (
                 <div className="relative w-5 h-5 inline-block align-middle">
-                  <NextImage src={repliedToMessage.imageUrl} alt="replied emoticon" layout="fill" className="object-contain" unoptimized />
+                  <NextImage src={repliedToMessage.imageUrl} alt="replied emoticon" fill sizes="20px" className="object-contain" unoptimized />
                 </div>
               ) : (
                 <span className="truncate">{repliedToMessage.text || (repliedToMessage.type === 'photo' ? '사진' : '이전 메시지')}</span>
