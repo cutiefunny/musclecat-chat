@@ -8,12 +8,16 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import NextImage from 'next/image';
 import { cn, formatKakaoTime } from '@/lib/utils';
-import { SmilePlus, MessageSquareReply, CornerDownRight } from 'lucide-react';
+import { SmilePlus, MessageSquareReply, CornerDownRight, Smile } from 'lucide-react';
 import { addReaction } from '@/lib/firebase/firebaseService';
 
 const ReactionPicker = ({ onSelect, messageId, authUser }) => {
@@ -34,7 +38,7 @@ const ReactionPicker = ({ onSelect, messageId, authUser }) => {
 };
 
 const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onReply, chatUser, highlightedMessageId, setHighlightedMessageId }) => {
-  const { authUser, users, messages } = useChatStore(); // 💡 authUser 추가
+  const { authUser, users, messages } = useChatStore();
   const formattedTime = msg.timestamp ? formatKakaoTime(msg.timestamp) : '';
   const isEmoticon = msg.type === 'emoticon';
 
@@ -53,7 +57,6 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   
   const canDelete = isMyMessage || (chatUser?.uid === 'owner' && msg.uid === 'bot-01');
 
-  // 답장하는 메시지 정보 찾기
   const repliedToMessage = msg.replyTo ? messages.find(m => m.id === msg.replyTo) : null;
   const repliedToUserProfile = repliedToMessage ? users.find(u => u.id === repliedToMessage.authUid) : null;
   const repliedToSenderName = repliedToUserProfile?.displayName || repliedToMessage?.sender;
@@ -67,10 +70,6 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
     }
   };
 
-  /**
-   * 답장 클릭 핸들러: 스크롤 및 애니메이션을 트리거합니다.
-   * 💡 뷰포트 확인 로직 추가
-   */
   const handleReplyClick = (messageId) => {
     const targetElement = document.getElementById(`message-${messageId}`);
     if (targetElement) {
@@ -81,23 +80,21 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
 
       const triggerAnimation = () => {
         setHighlightedMessageId(messageId);
-        setTimeout(() => setHighlightedMessageId(null), 1000); // 1초 후 하이라이트 제거
+        setTimeout(() => setHighlightedMessageId(null), 1000);
       };
 
       if (isVisible) {
-        // 이미 보이면 즉시 애니메이션 실행
         triggerAnimation();
       } else {
-        // 보이지 않으면 스크롤 후 애니메이션 실행
         targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(triggerAnimation, 500); // 스크롤 시간 기다리기
+        setTimeout(triggerAnimation, 500);
       }
     }
   };
 
   const ReactionsDisplay = ({ reactions }) => {
     if (!reactions || reactions.length === 0) return null;
-
+  
     const reactionSummary = reactions.reduce((acc, reaction) => {
       if (!acc[reaction.emoji]) {
         acc[reaction.emoji] = { users: [], count: 0 };
