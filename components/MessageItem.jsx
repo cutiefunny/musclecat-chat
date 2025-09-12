@@ -1,3 +1,4 @@
+// components/MessageItem.jsx
 "use client";
 
 import React from 'react';
@@ -33,7 +34,7 @@ const ReactionPicker = ({ onSelect, messageId, authUser }) => {
 };
 
 const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onReply, chatUser, highlightedMessageId, setHighlightedMessageId }) => {
-  const { users, messages } = useChatStore();
+  const { authUser, users, messages } = useChatStore(); // 💡 authUser 추가
   const formattedTime = msg.timestamp ? formatKakaoTime(msg.timestamp) : '';
   const isEmoticon = msg.type === 'emoticon';
 
@@ -67,49 +68,65 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   };
 
   /**
-   * 답장 클릭 핸들러: 스크롤 후 애니메이션을 트리거합니다.
+   * 답장 클릭 핸들러: 스크롤 및 애니메이션을 트리거합니다.
+   * 💡 뷰포트 확인 로직 추가
    */
   const handleReplyClick = (messageId) => {
     const targetElement = document.getElementById(`message-${messageId}`);
     if (targetElement) {
-      // 1. 원본 메시지로 스크롤
-      targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const rect = targetElement.getBoundingClientRect();
+      const isVisible =
+        rect.top >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
 
-      // 2. 스크롤이 끝날 시간을 기다린 후 애니메이션 시작
-      const scrollTransitionTime = 500; // 0.5초 (스크롤 시간)
-      setTimeout(() => {
+      const triggerAnimation = () => {
         setHighlightedMessageId(messageId);
-        
-        // 3. 애니메이션이 끝난 후 강조 상태 해제
-        const animationDuration = 1000; // 1초 (애니메이션 시간)
-        setTimeout(() => {
-          setHighlightedMessageId(null);
-        }, animationDuration);
-      }, scrollTransitionTime);
+        setTimeout(() => setHighlightedMessageId(null), 1000); // 1초 후 하이라이트 제거
+      };
+
+      if (isVisible) {
+        // 이미 보이면 즉시 애니메이션 실행
+        triggerAnimation();
+      } else {
+        // 보이지 않으면 스크롤 후 애니메이션 실행
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(triggerAnimation, 500); // 스크롤 시간 기다리기
+      }
     }
   };
 
   const ReactionsDisplay = ({ reactions }) => {
     if (!reactions || reactions.length === 0) return null;
 
-    // 반응을 이모지별로 그룹화하고 각 사용자 이름을 툴팁으로 표시
     const reactionSummary = reactions.reduce((acc, reaction) => {
       if (!acc[reaction.emoji]) {
-        acc[reaction.emoji] = [];
+        acc[reaction.emoji] = { users: [], count: 0 };
       }
       const reactorProfile = users.find(u => u.id === reaction.user);
-      acc[reaction.emoji].push(reactorProfile?.displayName || 'Unknown');
+      acc[reaction.emoji].users.push(reactorProfile?.displayName || 'Unknown');
+      acc[reaction.emoji].count++;
       return acc;
     }, {});
   
     return (
-      <div className="flex gap-1 mt-1">
-        {Object.entries(reactionSummary).map(([emoji, users]) => (
-          <div key={emoji} title={users.join(', ')} className="bg-gray-200 rounded-full px-2 py-0.5 text-xs flex items-center">
-            <span>{emoji}</span>
-            <span className="ml-1 text-gray-600">{users.length}</span>
-          </div>
-        ))}
+      <div className={cn("flex gap-1 mt-1 z-10", isMyMessage ? "justify-end" : "justify-start")}>
+        {Object.entries(reactionSummary).map(([emoji, { users: userList, count }]) => {
+          const hasMyReaction = reactions.some(r => r.emoji === emoji && r.user === authUser.uid);
+          return (
+            <button
+              key={emoji}
+              title={userList.join(', ')}
+              className={cn(
+                "rounded-full px-2 py-0.5 text-xs flex items-center border transition-colors",
+                hasMyReaction ? "bg-blue-100 border-blue-300 hover:bg-blue-200" : "bg-gray-100 border-gray-200 hover:bg-gray-200"
+              )}
+              onClick={() => handleReactionSelect(msg.id, { emoji, user: authUser.uid })}
+            >
+              <span>{emoji}</span>
+              <span className="ml-1 text-gray-600">{count}</span>
+            </button>
+          );
+        })}
       </div>
     );
   };
@@ -119,7 +136,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
 
   if (isEmoticon) {
     return (
-      <div id={messageContainerId} className={cn('flex items-start gap-2', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
+      <div id={messageContainerId} className={cn('flex items-start gap-2 group', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
         {!isMyMessage && showAvatar && (
           <Avatar className={cn("mt-1 flex-shrink-0", isOwner ? "size-10" : "size-8")}>
             <AvatarImage src={avatarSrc} alt={senderName} />
@@ -147,6 +164,17 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                   <MessageSquareReply className="mr-2 h-4 w-4" />
                   답장하기
                 </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Smile className="mr-2 h-4 w-4" />
+                    반응 남기기
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                       <ReactionPicker onSelect={handleReactionSelect} messageId={msg.id} authUser={authUser} />
+                    </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
                 {canDelete && (
                   <DropdownMenuItem onClick={() => onDelete(msg)} className="text-red-500 cursor-pointer">
                     삭제하기
@@ -165,7 +193,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   }
 
   return (
-    <div id={messageContainerId} className={cn('flex gap-2', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
+    <div id={messageContainerId} className={cn('flex gap-2 group', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
       {!isMyMessage && showAvatar && (
         <Avatar className={cn("mt-1 flex-shrink-0", isOwner ? "size-10" : "size-8")}>
           <AvatarImage src={avatarSrc} alt={senderName} />
@@ -183,13 +211,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
             <div className="text-gray-500 truncate flex-1">
               {repliedToMessage.type === 'emoticon' ? (
                 <div className="relative w-5 h-5 inline-block align-middle">
-                  <NextImage
-                    src={repliedToMessage.imageUrl}
-                    alt="replied emoticon"
-                    layout="fill"
-                    className="object-contain"
-                    unoptimized
-                  />
+                  <NextImage src={repliedToMessage.imageUrl} alt="replied emoticon" layout="fill" className="object-contain" unoptimized />
                 </div>
               ) : (
                 <span className="truncate">{repliedToMessage.text || (repliedToMessage.type === 'photo' ? '사진' : '이전 메시지')}</span>
@@ -229,9 +251,17 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                 <MessageSquareReply className="mr-2 h-4 w-4" />
                 답장하기
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                 <ReactionPicker onSelect={handleReactionSelect} messageId={msg.id} authUser={chatUser}/>
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Smile className="mr-2 h-4 w-4" />
+                  반응 남기기
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    <ReactionPicker onSelect={handleReactionSelect} messageId={msg.id} authUser={authUser} />
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
               {canDelete && (
                 <DropdownMenuItem
                   onClick={() => onDelete(msg)}

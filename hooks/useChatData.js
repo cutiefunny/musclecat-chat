@@ -1,18 +1,17 @@
 // hooks/useChatData.js
 import { useEffect } from 'react';
 import useChatStore from '@/store/chat-store';
-import { subscribeToMessages, subscribeToUsers } from '@/lib/firebase/firebaseService';
+import { subscribeToUsers } from '@/lib/firebase/firebaseService';
 
 export const useChatData = () => {
-    const { setMessages, setUsers } = useChatStore();
+    const { setUsers } = useChatStore();
 
     useEffect(() => {
-        const unsubscribeMessages = subscribeToMessages(setMessages);
+        // 사용자 정보만 구독하도록 변경
         const unsubscribeUsers = subscribeToUsers(setUsers);
 
         return () => {
-            unsubscribeMessages();
             unsubscribeUsers();
         };
-    }, [setMessages, setUsers]);
+    }, [setUsers]);
 };

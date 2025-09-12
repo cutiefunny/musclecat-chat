@@ -1,9 +1,10 @@
 // components/ChatRoom.jsx
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import useChatStore from '@/store/chat-store';
 import { useChatData } from '@/hooks/useChatData';
+import { useInfiniteScrollMessages } from '@/hooks/useInfiniteScrollMessages';
 import { useBot } from '@/hooks/useBot';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -28,7 +29,10 @@ import ProfileModal from './ProfileModal';
 import TypingIndicator from './TypingIndicator';
 
 const ChatRoom = () => {
-  const { authUser, chatUser, messages, users, typingUsers, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId } = useChatStore();
+  const { authUser, chatUser, users, typingUsers, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId } = useChatStore();
+  
+  const { messages, isLoading: isLoadingMore, isInitialLoad, hasMore, loadMore } = useInfiniteScrollMessages();
+  
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -36,11 +40,14 @@ const ChatRoom = () => {
   const [isEmoticonPickerOpen, setIsEmoticonPickerOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   
+  const scrollViewportRef = useRef(null);
   const scrollTargetRef = useRef(null);
   const emoticonPickerRef = useRef(null);
   const emoticonButtonRef = useRef(null);
   
-  // Custom hooks
+  // 💡 초기 스크롤 여부를 추적하기 위한 ref 추가
+  const didInitialScroll = useRef(false);
+
   useChatData();
   useBot();
   const { handleTyping } = useTypingIndicator();
@@ -49,14 +56,48 @@ const ChatRoom = () => {
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
-  // Auto-scroll to bottom
+  // 💡 스크롤 로직 수정: 초기 로딩 시 맨 아래로 스크롤
   useEffect(() => {
-    if (scrollTargetRef.current) {
-      scrollTargetRef.current.scrollIntoView({ behavior: 'auto' });
+    if (isInitialLoad || messages.length === 0) {
+      return;
     }
-  }, [messages, typingUsers]);
 
-  // Click outside handler for emoticon picker
+    // 초기 메시지 로드 후 한 번만 맨 아래로 즉시 스크롤
+    if (!didInitialScroll.current) {
+      scrollTargetRef.current?.scrollIntoView({ behavior: 'auto' });
+      didInitialScroll.current = true;
+      return;
+    }
+
+    // 이후 새 메시지는 부드럽게 스크롤 (자신이 보낸 메시지만)
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.authUid === authUser?.uid) {
+      // DOM 업데이트 후 스크롤하기 위해 짧은 지연 추가
+      setTimeout(() => {
+        scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [messages, isInitialLoad, authUser?.uid]);
+
+
+  const handleScroll = useCallback(() => {
+    const viewport = scrollViewportRef.current;
+    if (viewport) {
+      if (viewport.scrollTop === 0 && hasMore && !isLoadingMore) {
+        loadMore();
+      }
+    }
+  }, [hasMore, isLoadingMore, loadMore]);
+
+  useEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (viewport) {
+      viewport.addEventListener('scroll', handleScroll);
+      return () => viewport.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -168,7 +209,12 @@ const ChatRoom = () => {
         </div>
       </header>
 
-      <ScrollArea className="flex-1 min-h-0 p-4">
+      <ScrollArea viewportRef={scrollViewportRef} className="flex-1 min-h-0 p-4">
+        {isLoadingMore && (
+          <div className="flex justify-center my-4">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+          </div>
+        )}
         <div className="space-y-4">
           {messages.map((msg, index) => (
             <MessageItem
