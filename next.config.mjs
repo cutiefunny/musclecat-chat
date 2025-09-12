@@ -32,6 +32,7 @@ const configParams = new URLSearchParams(firebaseConfig).toString();
 
 export default withPWA({
   dest: "public",
-  // 💡 서비스 워커 URL에 Firebase 설정을 쿼리 파라미터로 추가합니다.
-  sw: `/firebase-messaging-sw.js?${configParams}`,
+  // 💡 importScripts를 사용하여 firebase-messaging-sw.js를 PWA 서비스 워커에 포함시키고,
+  // 💡 쿼리 파라미터로 설정 값을 전달합니다.
+  importScripts: [`/firebase-messaging-sw.js?${configParams}`], 
 })(nextConfig);
