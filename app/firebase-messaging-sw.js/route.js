@@ -21,16 +21,29 @@ export async function GET() {
       const messaging = firebase.messaging();
 
       messaging.onBackgroundMessage((payload) => {
-        console.log("✅ [firebase-messaging-sw.js] Received background message ", payload);
-        const notificationTitle = payload.notification.title;
+        console.log("[firebase-messaging-sw.js] Received background message ", payload);
+        
+        const notificationTitle = payload.data.title;
         const notificationOptions = {
-          body: payload.notification.body,
-          icon: payload.notification.icon,
+          body: payload.data.body,
+          icon: payload.data.icon,
+          data: {
+            url: payload.data.link
+          }
         };
+
         self.registration.showNotification(notificationTitle, notificationOptions);
       });
+
+      self.addEventListener('notificationclick', (event) => {
+        event.notification.close();
+        event.waitUntil(
+            clients.openWindow(event.notification.data.url)
+        );
+      });
+
     } else {
-      console.error("🚨 Service Worker: Firebase config is missing or incomplete.");
+      console.error('Service Worker: Firebase config is missing or incomplete.');
     }
   `;
 
