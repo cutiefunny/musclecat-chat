@@ -11,6 +11,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBotStatus } from '@/hooks/useBotStatus';
 import { sendMessage, deleteMessage, compressAndUploadImage } from '@/lib/firebase/firebaseService';
 import { signOut, auth } from '@/lib/firebase/clientApp';
+import { formatDateSeparator } from '@/lib/utils'; // 💡 날짜 포맷 함수 import
 
 // UI Components
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -45,7 +46,6 @@ const ChatRoom = () => {
   const emoticonPickerRef = useRef(null);
   const emoticonButtonRef = useRef(null);
   
-  // 💡 초기 스크롤 여부를 추적하기 위한 ref 추가
   const didInitialScroll = useRef(false);
 
   useChatData();
@@ -56,23 +56,19 @@ const ChatRoom = () => {
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
-  // 💡 스크롤 로직 수정: 초기 로딩 시 맨 아래로 스크롤
   useEffect(() => {
     if (isInitialLoad || messages.length === 0) {
       return;
     }
 
-    // 초기 메시지 로드 후 한 번만 맨 아래로 즉시 스크롤
     if (!didInitialScroll.current) {
       scrollTargetRef.current?.scrollIntoView({ behavior: 'auto' });
       didInitialScroll.current = true;
       return;
     }
 
-    // 이후 새 메시지는 부드럽게 스크롤 (자신이 보낸 메시지만)
     const lastMessage = messages[messages.length - 1];
     if (lastMessage?.authUid === authUser?.uid) {
-      // DOM 업데이트 후 스크롤하기 위해 짧은 지연 추가
       setTimeout(() => {
         scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
@@ -171,6 +167,9 @@ const ChatRoom = () => {
   if (!chatUser) {
     return <div className="flex items-center justify-center h-full">사용자 정보를 불러오는 중...</div>;
   }
+  
+  // 💡 날짜 구분선을 렌더링하기 위한 변수 추가
+  let lastMessageDate = null;
 
   return (
     <div className="flex flex-col h-full w-full bg-[#b2c7dc]">
@@ -216,20 +215,41 @@ const ChatRoom = () => {
           </div>
         )}
         <div className="space-y-4">
-          {messages.map((msg, index) => (
-            <MessageItem
-              key={msg.id}
-              msg={msg}
-              isMyMessage={msg.authUid === authUser.uid}
-              showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01'}
-              onDelete={handleDelete}
-              onImageClick={setSelectedImageUrl}
-              onReply={setReplyingToMessage}
-              chatUser={chatUser}
-              highlightedMessageId={highlightedMessageId}
-              setHighlightedMessageId={setHighlightedMessageId}
-            />
-          ))}
+          {messages.map((msg, index) => {
+            // 💡 날짜 구분선 로직 시작
+            let dateSeparator = null;
+            if (msg.timestamp) {
+                const messageDate = msg.timestamp.toDate().toLocaleDateString();
+                if (messageDate !== lastMessageDate) {
+                    dateSeparator = (
+                        <div className="flex justify-center my-4">
+                            <div className="text-xs text-gray-500 bg-gray-200/80 rounded-full px-3 py-1">
+                                {formatDateSeparator(msg.timestamp)}
+                            </div>
+                        </div>
+                    );
+                    lastMessageDate = messageDate;
+                }
+            }
+            // 💡 날짜 구분선 로직 끝
+
+            return (
+              <React.Fragment key={msg.id}>
+                {dateSeparator}
+                <MessageItem
+                  msg={msg}
+                  isMyMessage={msg.authUid === authUser.uid}
+                  showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01' || (messages[index-1]?.timestamp && msg.timestamp?.toDate().toLocaleDateString() !== messages[index-1].timestamp.toDate().toLocaleDateString())}
+                  onDelete={handleDelete}
+                  onImageClick={setSelectedImageUrl}
+                  onReply={setReplyingToMessage}
+                  chatUser={chatUser}
+                  highlightedMessageId={highlightedMessageId}
+                  setHighlightedMessageId={setHighlightedMessageId}
+                />
+              </React.Fragment>
+            );
+          })}
           {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />}
           <div ref={scrollTargetRef} />
         </div>
