@@ -65,7 +65,7 @@ async function sendPushNotificationToOwner(message) {
             },
             webpush: {
                 fcmOptions: {
-                    link: "https://your-chat-app-url.com/" // 💡 실제 앱 주소로 변경해주세요
+                    link: "https://musclecat-chat.vercel.app/" // 예시: 실제 배포된 앱의 URL
                 }
             }
         };

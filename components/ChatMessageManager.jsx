@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-// 💡 수정된 부분: db, doc, updateDoc을 clientApp에서 직접 import 합니다.
-import { subscribeToMessages, deleteMessage } from '@/lib/firebase/firebaseService';
+// 💡 수정된 부분: subscribeToAllMessages를 import 합니다.
+import { subscribeToAllMessages, deleteMessage } from '@/lib/firebase/firebaseService';
 import { db, doc, updateDoc } from '@/lib/firebase/clientApp'; 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -20,9 +20,10 @@ const ChatMessageManager = () => {
     const messagesPerPage = 10;
 
     useEffect(() => {
-        const unsubscribe = subscribeToMessages((messagesData) => {
-            // Reverse messages to show latest first
-            setMessages(messagesData.reverse());
+        // 💡 수정된 부분: subscribeToAllMessages를 사용하고, .reverse()를 제거합니다.
+        // (새로운 함수는 이미 최신순으로 데이터를 가져옵니다.)
+        const unsubscribe = subscribeToAllMessages((messagesData) => {
+            setMessages(messagesData);
             setIsLoading(false);
         });
         return () => unsubscribe();

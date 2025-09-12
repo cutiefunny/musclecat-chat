@@ -5,7 +5,6 @@ import withPWA from "@ducanh2912/next-pwa";
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    // 💡 AVIF와 WebP 포맷을 사용하도록 설정 추가
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
@@ -20,4 +19,7 @@ const nextConfig = {
 
 export default withPWA({
   dest: "public",
+  // 💡 다음 코드를 추가하여 PWA가 생성하는 서비스 워커에
+  // 💡 Firebase 메시징 스크립트를 포함시키세요.
+  importScripts: ["/firebase-messaging-sw.js"], 
 })(nextConfig);
