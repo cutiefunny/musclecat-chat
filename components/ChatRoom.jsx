@@ -56,15 +56,26 @@ const ChatRoom = () => {
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
-  // 💡 뒤로가기 방지 로직 추가
+  // 💡 뒤로가기 방지 및 앱 복귀 시 상태 재설정 로직
   useEffect(() => {
-    history.pushState(null, '', location.href);
-    const handlePopState = () => {
+    const preventBackNavigation = () => {
       history.pushState(null, '', location.href);
     };
-    window.addEventListener('popstate', handlePopState);
+
+    preventBackNavigation();
+    window.addEventListener('popstate', preventBackNavigation);
+
+    // 앱이 다시 활성화될 때 (예: 잠금 해제 후) 히스토리 상태를 다시 푸시
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        preventBackNavigation();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('popstate', preventBackNavigation);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -327,3 +338,4 @@ const ChatRoom = () => {
 };
 
 export default ChatRoom;
+
