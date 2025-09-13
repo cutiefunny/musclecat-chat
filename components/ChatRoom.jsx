@@ -56,6 +56,18 @@ const ChatRoom = () => {
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
+  // 💡 뒤로가기 방지 로직 추가
+  useEffect(() => {
+    history.pushState(null, '', location.href);
+    const handlePopState = () => {
+      history.pushState(null, '', location.href);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   useEffect(() => {
     if (isInitialLoad || messages.length === 0) {
       return;
