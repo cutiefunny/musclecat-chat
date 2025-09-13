@@ -56,13 +56,19 @@ const ChatRoom = () => {
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
-  // 💡 뒤로가기 방지 및 앱 복귀 시 상태 재설정 로직
+  // 💡 뒤로가기 방지 및 앱 복귀 시 상태 재설정 로직 강화
   useEffect(() => {
+    const CHAT_ROOM_STATE = { page: 'chatRoom' };
+    const currentUrl = location.href;
+
+    // 뒤로가기 시도를 "무력화"하기 위해 현재 상태를 다시 push
     const preventBackNavigation = () => {
-      history.pushState(null, '', location.href);
+      history.pushState(CHAT_ROOM_STATE, '', currentUrl);
     };
 
-    preventBackNavigation();
+    // 컴포넌트 마운트 시, 현재 히스토리 상태를 채팅방 상태로 교체
+    history.replaceState(CHAT_ROOM_STATE, '', currentUrl);
+
     window.addEventListener('popstate', preventBackNavigation);
 
     // 앱이 다시 활성화될 때 (예: 잠금 해제 후) 히스토리 상태를 다시 푸시
