@@ -97,7 +97,8 @@ const ChatRoom = () => {
     }
 
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.authUid === authUser?.uid) {
+    // ✨ 챗봇의 메시지(uid: 'bot-01')가 도착했을 때도 스크롤이 내려가도록 조건을 추가합니다.
+    if (lastMessage?.authUid === authUser?.uid || lastMessage?.uid === 'bot-01') {
       setTimeout(() => {
         scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
@@ -344,4 +345,3 @@ const ChatRoom = () => {
 };
 
 export default ChatRoom;
-
