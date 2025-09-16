@@ -97,7 +97,8 @@ async function sendBotReply(message) {
     try {
         const docSnap = await botStatusRef.get();
         
-        if (!docSnap.exists() || docSnap.data().isActive === false) {
+        // ✨ 이 부분이 수정되었습니다. docSnap.exists() -> docSnap.exists
+        if (!docSnap.exists || docSnap.data().isActive === false) {
             console.log("Bot is disabled. No reply will be sent.");
             return;
         }
@@ -106,7 +107,7 @@ async function sendBotReply(message) {
             return;
         }
 
-        let prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. 일단 자기소개부터 해줘. ';
+        let prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ';
         prompt += '가격이나 제품에 대한 질문에는 "가격 안내는 개발중이다! 냐사장을 불러주겠따!"라고 답해줘. ';
         prompt += '제품을 누가 만들었냐고 물어보면 "냐사장이 직접 만들었다!"라고 답해. ';
         prompt += '가게가 귀엽다고 칭찬하면 감사의 인사를 전해. ';
