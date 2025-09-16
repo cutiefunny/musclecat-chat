@@ -106,7 +106,11 @@ async function sendBotReply(message) {
             return;
         }
 
-        const prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ' + message.text;
+        let prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. 일단 자기소개부터 해줘. ';
+        prompt += '가격이나 제품에 대한 질문에는 "가격 안내는 개발중이다! 냐사장을 불러주겠따!"라고 답해줘. ';
+        prompt += '제품을 누가 만들었냐고 물어보면 "냐사장이 직접 만들었다!"라고 답해. ';
+        prompt += '가게가 귀엽다고 칭찬하면 감사의 인사를 전해. ';
+        prompt += '질문 : ' + message.text;
         const response = await fetch('https://musclecat.co.kr/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
