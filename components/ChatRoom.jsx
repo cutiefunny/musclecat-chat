@@ -47,6 +47,8 @@ const ChatRoom = () => {
   const emoticonButtonRef = useRef(null);
   
   const didInitialScroll = useRef(false);
+  const lastMessageIdRef = useRef(null);
+  const scrollInfoRef = useRef({ previousScrollHeight: 0 });
 
   useChatData();
   useBot();
@@ -56,22 +58,18 @@ const ChatRoom = () => {
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
-  // 💡 뒤로가기 방지 및 앱 복귀 시 상태 재설정 로직 강화
   useEffect(() => {
     const CHAT_ROOM_STATE = { page: 'chatRoom' };
     const currentUrl = location.href;
 
-    // 뒤로가기 시도를 "무력화"하기 위해 현재 상태를 다시 push
     const preventBackNavigation = () => {
       history.pushState(CHAT_ROOM_STATE, '', currentUrl);
     };
 
-    // 컴포넌트 마운트 시, 현재 히스토리 상태를 채팅방 상태로 교체
     history.replaceState(CHAT_ROOM_STATE, '', currentUrl);
 
     window.addEventListener('popstate', preventBackNavigation);
 
-    // 앱이 다시 활성화될 때 (예: 잠금 해제 후) 히스토리 상태를 다시 푸시
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         preventBackNavigation();
@@ -86,30 +84,51 @@ const ChatRoom = () => {
   }, []);
 
   useEffect(() => {
-    if (isInitialLoad || messages.length === 0) {
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return;
+
+    if (isInitialLoad) {
+      // 초기 로딩 시에는 아무것도 하지 않음
       return;
     }
-
-    if (!didInitialScroll.current) {
-      scrollTargetRef.current?.scrollIntoView({ behavior: 'auto' });
+    
+    // 💡 스크롤 로직 개선
+    // 1. 초기 렌더링 후 맨 아래로 스크롤
+    if (!didInitialScroll.current && messages.length > 0) {
+      viewport.scrollTop = viewport.scrollHeight;
       didInitialScroll.current = true;
+      lastMessageIdRef.current = messages[messages.length - 1]?.id;
       return;
     }
 
-    const lastMessage = messages[messages.length - 1];
-    // ✨ 챗봇의 메시지(uid: 'bot-01')가 도착했을 때도 스크롤이 내려가도록 조건을 추가합니다.
-    if (lastMessage?.authUid === authUser?.uid || lastMessage?.uid === 'bot-01') {
-      setTimeout(() => {
-        scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+    // 2. 새로운 메시지가 도착했을 때만 맨 아래로 스크롤
+    const newLastMessage = messages[messages.length - 1];
+    if (newLastMessage?.id !== lastMessageIdRef.current) {
+      // 사용자가 맨 아래에 있을 때만 자동으로 스크롤
+      if (viewport.scrollHeight - viewport.clientHeight <= viewport.scrollTop + 100) { // 100px의 여유
+        setTimeout(() => {
+            scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 100);
+      }
+      lastMessageIdRef.current = newLastMessage?.id;
+    } 
+    // 3. 이전 메시지를 불러왔을 때 스크롤 위치 유지
+    else if (scrollInfoRef.current.isLoadingMore) {
+      const newScrollHeight = viewport.scrollHeight;
+      viewport.scrollTop = newScrollHeight - scrollInfoRef.current.previousScrollHeight;
+      scrollInfoRef.current.isLoadingMore = false;
     }
-  }, [messages, isInitialLoad, authUser?.uid]);
-
+  }, [messages, isInitialLoad]);
 
   const handleScroll = useCallback(() => {
     const viewport = scrollViewportRef.current;
     if (viewport) {
       if (viewport.scrollTop === 0 && hasMore && !isLoadingMore) {
+        // 이전 메시지를 불러오기 직전의 스크롤 높이 저장
+        scrollInfoRef.current = {
+          isLoadingMore: true,
+          previousScrollHeight: viewport.scrollHeight,
+        };
         loadMore();
       }
     }
@@ -198,7 +217,6 @@ const ChatRoom = () => {
     return <div className="flex items-center justify-center h-full">사용자 정보를 불러오는 중...</div>;
   }
   
-  // 💡 날짜 구분선을 렌더링하기 위한 변수 추가
   let lastMessageDate = null;
 
   return (
@@ -246,7 +264,6 @@ const ChatRoom = () => {
         )}
         <div className="space-y-4">
           {messages.map((msg, index) => {
-            // 💡 날짜 구분선 로직 시작
             let dateSeparator = null;
             if (msg.timestamp) {
                 const messageDate = msg.timestamp.toDate().toLocaleDateString();
@@ -261,7 +278,6 @@ const ChatRoom = () => {
                     lastMessageDate = messageDate;
                 }
             }
-            // 💡 날짜 구분선 로직 끝
 
             return (
               <React.Fragment key={msg.id}>

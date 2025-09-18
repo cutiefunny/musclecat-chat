@@ -141,7 +141,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
           </Avatar>
         )}
         
-        <div className={cn("flex flex-col gap-1", isMyMessage ? "items-end" : "items-start")}>
+        {/* 💡 수정된 부분: min-w-0 클래스 추가 */}
+        <div className={cn("flex flex-col gap-1 min-w-0", isMyMessage ? "items-end" : "items-start")}>
           {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
           <div className={cn("flex items-end gap-1", isMyMessage ? "flex-row-reverse" : "flex-row")}>
             <DropdownMenu>
@@ -199,7 +200,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
         </Avatar>
       )}
 
-      <div className={cn("flex flex-col gap-1", isMyMessage ? "items-end" : "items-start")}>
+      {/* 💡 수정된 부분: min-w-0 클래스 추가 */}
+      <div className={cn("flex flex-col gap-1 min-w-0", isMyMessage ? "items-end" : "items-start")}>
         {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
         
         {repliedToMessage && (

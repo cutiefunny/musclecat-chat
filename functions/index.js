@@ -1,8 +1,10 @@
 // functions/index.js
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+// 💡 onSchedule을 import합니다.
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, serverTimestamp } = require("firebase-admin/firestore"); // 💡 serverTimestamp 추가
 const { getMessaging } = require("firebase-admin/messaging");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const fetch = require("node-fetch");
@@ -19,20 +21,61 @@ exports.handleNewMessage = onDocumentCreated("messages/{messageId}", async (even
         return;
     }
     const newMessage = snapshot.data();
+    const db = getFirestore();
 
-    console.log(`New message received from UID: ${newMessage.uid}. Triggering functions.`);
-
-    // 고객이 보낸 메시지가 아니면 아무 작업도 하지 않음
-    if (newMessage.uid !== "customer") {
-        console.log("Message is not from a customer. Skipping push notification and bot reply.");
+    // 💡 사장이 메시지를 보내면 봇을 비활성화하고 마지막 활동 시간을 기록합니다.
+    if (newMessage.uid === "owner") {
+        console.log("Owner sent a message. Deactivating bot and updating timestamp.");
+        const botStatusRef = db.doc("settings/bot");
+        const ownerActivityRef = db.doc("settings/ownerActivity");
+        
+        await Promise.all([
+            botStatusRef.set({ isActive: false }, { merge: true }),
+            ownerActivityRef.set({ lastMessageTimestamp: serverTimestamp() }, { merge: true })
+        ]);
+        // 사장이 보낸 메시지이므로 여기서 함수를 종료합니다.
         return;
     }
-    
-    // 두 가지 작업을 동시에 처리: 푸시 알림과 봇 응답
-    await Promise.all([
-        sendPushNotificationToOwner(newMessage),
-        sendBotReply(newMessage)
-    ]);
+
+    // 💡 고객이 보낸 메시지일 때만 아래 로직을 실행합니다.
+    if (newMessage.uid === "customer") {
+        console.log(`Customer message received. Triggering push notification and bot reply.`);
+        await Promise.all([
+            sendPushNotificationToOwner(newMessage),
+            sendBotReply(newMessage)
+        ]);
+    }
+});
+
+// 💡 1분마다 실행되어 사장의 활동을 체크하고 봇을 다시 활성화하는 새로운 함수
+exports.turnBotOnAfterInactivity = onSchedule("every 1 minutes", async (event) => {
+    const db = getFirestore();
+    const botStatusRef = db.doc("settings/bot");
+    const ownerActivityRef = db.doc("settings/ownerActivity");
+
+    const botStatusSnap = await botStatusRef.get();
+    const ownerActivitySnap = await ownerActivityRef.get();
+
+    // 봇이 이미 활성화 상태이거나, 사장 활동 기록이 없으면 아무것도 하지 않음
+    if (!botStatusSnap.exists() || botStatusSnap.data().isActive === true || !ownerActivitySnap.exists()) {
+        console.log("Scheduled check: Bot is already active or no owner activity recorded. Skipping.");
+        return null;
+    }
+
+    const lastActiveTimestamp = ownerActivitySnap.data().lastMessageTimestamp;
+    if (lastActiveTimestamp) {
+        const now = new Date();
+        const lastActiveDate = lastActiveTimestamp.toDate();
+        const diffMinutes = (now.getTime() - lastActiveDate.getTime()) / (1000 * 60);
+
+        if (diffMinutes >= 1) {
+            console.log("Scheduled check: Owner has been inactive for over 1 minute. Re-enabling bot.");
+            await botStatusRef.set({ isActive: true }, { merge: true });
+        } else {
+            console.log("Scheduled check: Owner was active within the last minute. Bot remains disabled.");
+        }
+    }
+    return null;
 });
 
 
@@ -63,7 +106,6 @@ async function sendPushNotificationToOwner(message) {
             return;
         }
 
-        // 'notification' 속성을 제거하고 모든 정보를 'data' 속성으로 옮깁니다.
         const messagePayload = {
             token: fcmToken,
             data: {
@@ -71,7 +113,15 @@ async function sendPushNotificationToOwner(message) {
                 body: message.text || (message.type === 'photo' ? '사진' : '이모티콘') + '을 보냈습니다.',
                 icon: "https://musclecat-chat.vercel.app/images/icon-144.png",
                 link: "https://musclecat-chat.vercel.app/"
-            }
+            },
+            android: {
+              priority: "high"
+            },
+            apns: {
+              headers: {
+                "apns-priority": "10",
+              },
+            },
         };
 
         console.log(`Sending data-only message to token: ${fcmToken.substring(0, 20)}...`);
@@ -97,11 +147,23 @@ async function sendBotReply(message) {
     try {
         const docSnap = await botStatusRef.get();
         
-        // ✨ 이 부분이 수정되었습니다. docSnap.exists() -> docSnap.exists
         if (!docSnap.exists || docSnap.data().isActive === false) {
             console.log("Bot is disabled. No reply will be sent.");
             return;
         }
+        
+        const messagesRef = db.collection("messages");
+        const lastMessageQuery = messagesRef.orderBy("timestamp", "desc").limit(1);
+        const lastMessageSnapshot = await lastMessageQuery.get();
+
+        if (!lastMessageSnapshot.empty) {
+            const lastMessage = lastMessageSnapshot.docs[0].data();
+            if (lastMessage.uid === 'bot-01') {
+                console.log("The last message was from the bot. Skipping bot reply.");
+                return;
+            }
+        }
+
 
         if (message.type !== 'text' || !message.text) {
             return;
@@ -121,8 +183,16 @@ async function sendBotReply(message) {
         if (!response.ok) {
             throw new Error(`Bot API request failed with status ${response.status}`);
         }
+        
+        const botResponseData = await response.json();
 
-        const botResponseText = await response.text();
+        if (botResponseData && botResponseData.result === 'fail') {
+          console.log("Bot response result is 'fail'. No message will be sent.");
+          return;
+        }
+        
+        const botResponseText = botResponseData.text;
+
 
         if (botResponseText) {
             await db.collection("messages").add({
