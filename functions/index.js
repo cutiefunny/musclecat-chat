@@ -20,7 +20,7 @@ exports.handleNewMessage = onDocumentCreated("messages/{messageId}", async (even
     }
     const newMessage = snapshot.data();
     
-    // 💡 고객이 보낸 메시지일 때만 푸시 알림과 봇 응답 로직을 실행합니다.
+    // 고객이 보낸 메시지일 때만 푸시 알림과 봇 응답 로직을 실행합니다.
     if (newMessage.uid === "customer") {
         console.log(`Customer message received. Triggering push notification and bot reply.`);
         await Promise.all([
@@ -110,7 +110,8 @@ async function sendBotReply(message, messageId) {
     try {
         const docSnap = await botStatusRef.get();
         
-        if (!docSnap.exists() || docSnap.data().isActive === false) {
+        // 💡 수정한 부분: docSnap.exists() -> docSnap.exists
+        if (!docSnap.exists || docSnap.data().isActive === false) {
             console.log("Bot is disabled. No reply will be sent.");
             return;
         }
