@@ -2,7 +2,8 @@
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore, serverTimestamp } = require("firebase-admin/firestore");
+// 💡 [수정] serverTimestamp 대신 FieldValue를 import합니다.
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const fetch = require("node-fetch");
@@ -110,7 +111,6 @@ async function sendBotReply(message, messageId) {
     try {
         const docSnap = await botStatusRef.get();
         
-        // 💡 [수정] docSnap.exists() -> docSnap.exists 로 변경
         if (!docSnap.exists || docSnap.data().isActive === false) {
             console.log("Bot is disabled. No reply will be sent.");
             return;
@@ -166,7 +166,8 @@ async function sendBotReply(message, messageId) {
                 sender: '근육고양이봇',
                 uid: 'bot-01',
                 authUid: 'bot-01',
-                timestamp: serverTimestamp()
+                // 💡 [수정] FieldValue.serverTimestamp() 사용
+                timestamp: FieldValue.serverTimestamp()
             });
             console.log("Successfully sent bot reply.");
         } else {
@@ -176,3 +177,4 @@ async function sendBotReply(message, messageId) {
         console.error("Error sending bot reply:", error);
     }
 }
+
