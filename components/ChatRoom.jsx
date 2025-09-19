@@ -9,9 +9,10 @@ import { useBot } from '@/hooks/useBot';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBotStatus } from '@/hooks/useBotStatus';
-import { sendMessage, deleteMessage, compressAndUploadImage } from '@/lib/firebase/firebaseService';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages'; // 💡 import
+import { sendMessage, deleteMessage, compressAndUploadImage, markMessagesAsRead } from '@/lib/firebase/firebaseService';
 import { signOut, auth } from '@/lib/firebase/clientApp';
-import { formatDateSeparator } from '@/lib/utils'; // 💡 날짜 포맷 함수 import
+import { formatDateSeparator } from '@/lib/utils';
 
 // UI Components
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, LogOut, Loader2, Smile, User, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge'; // 💡 Badge import
 
 // Other Components
 import CameraCapture from './CameraCapture';
@@ -30,7 +32,7 @@ import ProfileModal from './ProfileModal';
 import TypingIndicator from './TypingIndicator';
 
 const ChatRoom = () => {
-  const { authUser, chatUser, users, typingUsers, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId } = useChatStore();
+  const { authUser, chatUser, users, typingUsers, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId, unreadCount } = useChatStore();
   
   const { messages, isLoading: isLoadingMore, isInitialLoad, hasMore, loadMore } = useInfiniteScrollMessages();
   
@@ -52,11 +54,20 @@ const ChatRoom = () => {
 
   useChatData();
   useBot();
+  useUnreadMessages(); // 💡 훅 호출
   const { handleTyping } = useTypingIndicator();
   usePushNotifications();
   const { isBotActive, handleToggleBot } = useBotStatus();
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
+  
+  useEffect(() => {
+    // 💡 컴포넌트 마운트 시 메시지 읽음 처리
+    if (authUser?.uid) {
+        markMessagesAsRead(authUser.uid);
+    }
+  }, [authUser?.uid]);
+
 
   useEffect(() => {
     const CHAT_ROOM_STATE = { page: 'chatRoom' };
@@ -104,6 +115,10 @@ const ChatRoom = () => {
     // 2. 새로운 메시지가 도착했을 때만 맨 아래로 스크롤
     const newLastMessage = messages[messages.length - 1];
     if (newLastMessage?.id !== lastMessageIdRef.current) {
+        // 💡 새 메시지 도착 시 읽음 처리
+        if (authUser?.uid) {
+            markMessagesAsRead(authUser.uid);
+        }
       // 사용자가 맨 아래에 있을 때만 자동으로 스크롤
       if (viewport.scrollHeight - viewport.clientHeight <= viewport.scrollTop + 100) { // 100px의 여유
         setTimeout(() => {
@@ -118,7 +133,7 @@ const ChatRoom = () => {
       viewport.scrollTop = newScrollHeight - scrollInfoRef.current.previousScrollHeight;
       scrollInfoRef.current.isLoadingMore = false;
     }
-  }, [messages, isInitialLoad]);
+  }, [messages, isInitialLoad, authUser?.uid]);
 
   const handleScroll = useCallback(() => {
     const viewport = scrollViewportRef.current;
@@ -235,11 +250,19 @@ const ChatRoom = () => {
           </p>
 
           <DropdownMenu>
-            <DropdownMenuTrigger>
-              <Avatar className="size-8 cursor-pointer">
-                <AvatarImage src={currentUserProfile?.photoURL} alt={currentUserProfile?.displayName} />
-                <AvatarFallback>{currentUserProfile?.displayName?.charAt(0) || '?'}</AvatarFallback>
-              </Avatar>
+            <DropdownMenuTrigger asChild>
+                <div className="relative">
+                    <Avatar className="size-8 cursor-pointer">
+                        <AvatarImage src={currentUserProfile?.photoURL} alt={currentUserProfile?.displayName} />
+                        <AvatarFallback>{currentUserProfile?.displayName?.charAt(0) || '?'}</AvatarFallback>
+                    </Avatar>
+                    {/* 💡 읽지 않은 메시지 뱃지 */}
+                    {unreadCount > 0 && (
+                        <Badge variant="destructive" className="absolute -top-1 -right-2 h-5 w-5 p-0 flex items-center justify-center">
+                            {unreadCount}
+                        </Badge>
+                    )}
+                </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => setIsProfileModalOpen(true)}>
@@ -354,7 +377,7 @@ const ChatRoom = () => {
       </div>
 
       {isCameraOpen && <CameraCapture onCapture={handleCapture} onClose={() => setIsCameraOpen(false)} />}
-      <ImageModal imageUrl={selectedImageUrl} onClose={() => setSelectedImageUrl(null)} />
+      {selectedImageUrl && <ImageModal imageUrl={selectedImageUrl} onClose={() => setSelectedImageUrl(null)} />}
       {isProfileModalOpen && <ProfileModal onClose={() => setIsProfileModalOpen(false)} />}
     </div>
   );

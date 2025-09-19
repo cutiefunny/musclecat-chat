@@ -10,6 +10,7 @@ const useChatStore = create((set) => ({
   typingUsers: [],
   replyingToMessage: null,
   highlightedMessageId: null,
+  unreadCount: 0, // 💡 읽지 않은 메시지 수 상태 추가
 
   // 💡 무한 스크롤 상태 추가
   lastLoadedMessage: null,
@@ -30,6 +31,7 @@ const useChatStore = create((set) => ({
   setTypingUsers: (typingUsers) => set({ typingUsers }),
   setReplyingToMessage: (message) => set({ replyingToMessage: message }),
   setHighlightedMessageId: (messageId) => set({ highlightedMessageId: messageId }),
+  setUnreadCount: (count) => set({ unreadCount: count }), // 💡 액션 추가
   
   // 💡 무한 스크롤 상태 업데이트 액션 추가
   setLastLoadedMessage: (doc) => set({ lastLoadedMessage: doc }),
