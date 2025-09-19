@@ -110,7 +110,6 @@ async function sendBotReply(message, messageId) {
     try {
         const docSnap = await botStatusRef.get();
         
-        // 💡 수정한 부분: docSnap.exists() -> docSnap.exists
         if (!docSnap.exists || docSnap.data().isActive === false) {
             console.log("Bot is disabled. No reply will be sent.");
             return;
@@ -151,17 +150,17 @@ async function sendBotReply(message, messageId) {
             throw new Error(`Bot API request failed with status ${response.status}`);
         }
         
-        const botResponseData = await response.json();
-        console.log("Bot API response received:", botResponseData);
-
-        if (botResponseData && botResponseData.result === 'fail') {
-          console.log("Bot response result is 'fail'. No message will be sent.");
-          return;
-        }
+        // 💡 수정한 부분: response.json() -> response.text()
+        const botResponseText = await response.text();
+        console.log("Bot API response received:", botResponseText);
         
-        const botResponseText = botResponseData.text;
-
         if (botResponseText && botResponseText.trim()) {
+            // 💡 "fail" 이라는 텍스트가 포함되어 있으면 응답하지 않도록 예외 처리
+            if (botResponseText.trim().toLowerCase().includes('fail')) {
+                console.log("Bot response contains 'fail'. No message will be sent.");
+                return;
+            }
+            
             await db.collection("messages").add({
                 text: botResponseText.trim(),
                 type: 'text',
