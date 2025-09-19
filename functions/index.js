@@ -1,10 +1,8 @@
 // functions/index.js
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
-// 💡 onSchedule을 import합니다.
-const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore, serverTimestamp } = require("firebase-admin/firestore"); // 💡 serverTimestamp 추가
+const { getFirestore, serverTimestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const fetch = require("node-fetch");
@@ -21,63 +19,16 @@ exports.handleNewMessage = onDocumentCreated("messages/{messageId}", async (even
         return;
     }
     const newMessage = snapshot.data();
-    const db = getFirestore();
-
-    // 💡 사장이 메시지를 보내면 봇을 비활성화하고 마지막 활동 시간을 기록합니다.
-    if (newMessage.uid === "owner") {
-        console.log("Owner sent a message. Deactivating bot and updating timestamp.");
-        const botStatusRef = db.doc("settings/bot");
-        const ownerActivityRef = db.doc("settings/ownerActivity");
-        
-        await Promise.all([
-            botStatusRef.set({ isActive: false }, { merge: true }),
-            ownerActivityRef.set({ lastMessageTimestamp: serverTimestamp() }, { merge: true })
-        ]);
-        // 사장이 보낸 메시지이므로 여기서 함수를 종료합니다.
-        return;
-    }
-
-    // 💡 고객이 보낸 메시지일 때만 아래 로직을 실행합니다.
+    
+    // 💡 고객이 보낸 메시지일 때만 푸시 알림과 봇 응답 로직을 실행합니다.
     if (newMessage.uid === "customer") {
         console.log(`Customer message received. Triggering push notification and bot reply.`);
         await Promise.all([
             sendPushNotificationToOwner(newMessage),
-            sendBotReply(newMessage, event.params.messageId) // 💡 messageId 전달
+            sendBotReply(newMessage, event.params.messageId)
         ]);
     }
 });
-
-// 💡 1분마다 실행되어 사장의 활동을 체크하고 봇을 다시 활성화하는 새로운 함수
-exports.turnBotOnAfterInactivity = onSchedule("every 1 minutes", async (event) => {
-    const db = getFirestore();
-    const botStatusRef = db.doc("settings/bot");
-    const ownerActivityRef = db.doc("settings/ownerActivity");
-
-    const botStatusSnap = await botStatusRef.get();
-    const ownerActivitySnap = await ownerActivityRef.get();
-
-    // 봇이 이미 활성화 상태이거나, 사장 활동 기록이 없으면 아무것도 하지 않음
-    if (!botStatusSnap.exists() || botStatusSnap.data().isActive === true || !ownerActivitySnap.exists()) {
-        console.log("Scheduled check: Bot is already active or no owner activity recorded. Skipping.");
-        return null;
-    }
-
-    const lastActiveTimestamp = ownerActivitySnap.data().lastMessageTimestamp;
-    if (lastActiveTimestamp) {
-        const now = new Date();
-        const lastActiveDate = lastActiveTimestamp.toDate();
-        const diffMinutes = (now.getTime() - lastActiveDate.getTime()) / (1000 * 60);
-
-        if (diffMinutes >= 1) {
-            console.log("Scheduled check: Owner has been inactive for over 1 minute. Re-enabling bot.");
-            await botStatusRef.set({ isActive: true }, { merge: true });
-        } else {
-            console.log("Scheduled check: Owner was active within the last minute. Bot remains disabled.");
-        }
-    }
-    return null;
-});
-
 
 /**
  * 사장님에게 푸시 알림을 보냅니다.
@@ -110,11 +61,9 @@ async function sendPushNotificationToOwner(message) {
 
         const messagePayload = {
             token: fcmToken,
-            // 💡 notification 속성 추가
             notification: {
                 title: `${message.sender}님의 새 메시지`,
                 body: notificationBody,
-                icon: "https://musclecat-chat.vercel.app/images/icon-144.png",
             },
             data: {
                 title: `${message.sender}님의 새 메시지`,
@@ -166,15 +115,11 @@ async function sendBotReply(message, messageId) {
             return;
         }
         
-        // 💡 봇이 방금 보낸 메시지인지 확인하는 로직 개선
         const messagesRef = db.collection("messages");
-        // 현재 메시지 직전의 메시지 2개를 가져와서 봇이 연속으로 응답하는지 확인
         const recentMessagesQuery = messagesRef.orderBy("timestamp", "desc").limit(2);
         const recentMessagesSnapshot = await recentMessagesQuery.get();
 
-        // 💡 직전 메시지가 봇의 메시지였다면 응답하지 않음
         if (!recentMessagesSnapshot.empty) {
-            // 새로 생성된 현재 메시지를 제외하고 이전 메시지를 확인
             const previousMessages = recentMessagesSnapshot.docs.filter(doc => doc.id !== messageId);
             if (previousMessages.length > 0 && previousMessages[0].data().uid === 'bot-01') {
                 console.log("The previous message was from the bot. Skipping bot reply.");
@@ -222,7 +167,7 @@ async function sendBotReply(message, messageId) {
                 sender: '근육고양이봇',
                 uid: 'bot-01',
                 authUid: 'bot-01',
-                timestamp: serverTimestamp() // 💡 서버 타임스탬프 사용
+                timestamp: serverTimestamp()
             });
             console.log("Successfully sent bot reply.");
         } else {
