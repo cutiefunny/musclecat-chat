@@ -42,7 +42,7 @@ exports.handleNewMessage = onDocumentCreated("messages/{messageId}", async (even
         console.log(`Customer message received. Triggering push notification and bot reply.`);
         await Promise.all([
             sendPushNotificationToOwner(newMessage),
-            sendBotReply(newMessage)
+            sendBotReply(newMessage, event.params.messageId) // 💡 messageId 전달
         ]);
     }
 });
@@ -106,11 +106,19 @@ async function sendPushNotificationToOwner(message) {
             return;
         }
 
+        const notificationBody = message.text || (message.type === 'photo' ? '사진' : '이모티콘') + '을 보냈습니다.';
+
         const messagePayload = {
             token: fcmToken,
+            // 💡 notification 속성 추가
+            notification: {
+                title: `${message.sender}님의 새 메시지`,
+                body: notificationBody,
+                icon: "https://musclecat-chat.vercel.app/images/icon-144.png",
+            },
             data: {
                 title: `${message.sender}님의 새 메시지`,
-                body: message.text || (message.type === 'photo' ? '사진' : '이모티콘') + '을 보냈습니다.',
+                body: notificationBody,
                 icon: "https://musclecat-chat.vercel.app/images/icon-144.png",
                 link: "https://musclecat-chat.vercel.app/"
             },
@@ -121,54 +129,65 @@ async function sendPushNotificationToOwner(message) {
               headers: {
                 "apns-priority": "10",
               },
+              payload: {
+                aps: {
+                  sound: "default",
+                },
+              },
             },
         };
 
-        console.log(`Sending data-only message to token: ${fcmToken.substring(0, 20)}...`);
+        console.log(`Sending hybrid message to token: ${fcmToken.substring(0, 20)}...`);
         console.log("Payload:", JSON.stringify(messagePayload, null, 2));
 
         const response = await getMessaging().send(messagePayload);
         
-        console.log("Successfully sent data message:", response);
+        console.log("Successfully sent message:", response);
 
     } catch (error) {
-        console.error("Error sending data message:", error);
+        console.error("Error sending message:", error);
     }
 }
 
 /**
  * 봇 상태를 확인하고, 활성화 상태이면 AI 응답을 보냅니다.
  * @param {object} message - 새 메시지 데이터
+ * @param {string} messageId - 새 메시지의 ID
  */
-async function sendBotReply(message) {
+async function sendBotReply(message, messageId) {
     const db = getFirestore();
     const botStatusRef = db.doc("settings/bot");
     
     try {
         const docSnap = await botStatusRef.get();
         
-        if (!docSnap.exists || docSnap.data().isActive === false) {
+        if (!docSnap.exists() || docSnap.data().isActive === false) {
             console.log("Bot is disabled. No reply will be sent.");
             return;
         }
         
+        // 💡 봇이 방금 보낸 메시지인지 확인하는 로직 개선
         const messagesRef = db.collection("messages");
-        const lastMessageQuery = messagesRef.orderBy("timestamp", "desc").limit(1);
-        const lastMessageSnapshot = await lastMessageQuery.get();
+        // 현재 메시지 직전의 메시지 2개를 가져와서 봇이 연속으로 응답하는지 확인
+        const recentMessagesQuery = messagesRef.orderBy("timestamp", "desc").limit(2);
+        const recentMessagesSnapshot = await recentMessagesQuery.get();
 
-        if (!lastMessageSnapshot.empty) {
-            const lastMessage = lastMessageSnapshot.docs[0].data();
-            if (lastMessage.uid === 'bot-01') {
-                console.log("The last message was from the bot. Skipping bot reply.");
+        // 💡 직전 메시지가 봇의 메시지였다면 응답하지 않음
+        if (!recentMessagesSnapshot.empty) {
+            // 새로 생성된 현재 메시지를 제외하고 이전 메시지를 확인
+            const previousMessages = recentMessagesSnapshot.docs.filter(doc => doc.id !== messageId);
+            if (previousMessages.length > 0 && previousMessages[0].data().uid === 'bot-01') {
+                console.log("The previous message was from the bot. Skipping bot reply.");
                 return;
             }
         }
 
-
         if (message.type !== 'text' || !message.text) {
+            console.log("Message is not a text type or has no content. Skipping bot reply.");
             return;
         }
 
+        console.log("Calling external bot API...");
         let prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ';
         prompt += '가격이나 제품에 대한 질문에는 "가격 안내는 개발중이다! 냐사장을 불러주겠따!"라고 답해줘. ';
         prompt += '제품을 누가 만들었냐고 물어보면 "냐사장이 직접 만들었다!"라고 답해. ';
@@ -181,10 +200,13 @@ async function sendBotReply(message) {
         });
 
         if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(`Bot API request failed with status ${response.status}: ${errorBody}`);
             throw new Error(`Bot API request failed with status ${response.status}`);
         }
         
         const botResponseData = await response.json();
+        console.log("Bot API response received:", botResponseData);
 
         if (botResponseData && botResponseData.result === 'fail') {
           console.log("Bot response result is 'fail'. No message will be sent.");
@@ -193,17 +215,18 @@ async function sendBotReply(message) {
         
         const botResponseText = botResponseData.text;
 
-
-        if (botResponseText) {
+        if (botResponseText && botResponseText.trim()) {
             await db.collection("messages").add({
-                text: botResponseText,
+                text: botResponseText.trim(),
                 type: 'text',
                 sender: '근육고양이봇',
                 uid: 'bot-01',
                 authUid: 'bot-01',
-                timestamp: new Date()
+                timestamp: serverTimestamp() // 💡 서버 타임스탬프 사용
             });
             console.log("Successfully sent bot reply.");
+        } else {
+            console.log("Bot API returned an empty response text. No message will be sent.");
         }
     } catch (error) {
         console.error("Error sending bot reply:", error);
