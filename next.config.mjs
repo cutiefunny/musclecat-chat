@@ -18,7 +18,7 @@ const nextConfig = {
 
 export default withPWA({
   dest: "public",
-  // 💡 서비스 워커의 소스로 API Route를 직접 지정합니다.
-  sw: "firebase-messaging-sw.js",
-  // 💡 importScripts 옵션은 제거합니다.
+  // 💡 PWA가 생성하는 기본 서비스 워커(sw.js)에 Firebase 서비스 워커 스크립트를 포함시킵니다.
+  // 이렇게 하면 서비스 워커 파일 이름 충돌 문제를 해결하고 PWA와 FCM이 함께 동작할 수 있습니다.
+  importScripts: ["/firebase-messaging-sw.js"],
 })(nextConfig);

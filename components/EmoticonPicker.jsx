@@ -29,8 +29,8 @@ const EmoticonPicker = forwardRef(({ onEmoticonSelect, onClose }, ref) => {
         return () => unsubscribe();
     }, []);
 
-    const handleSelect = (url) => {
-        onEmoticonSelect(url);
+    const handleSelect = (emoticon) => {
+        onEmoticonSelect(emoticon);
         onClose();
     };
 
@@ -58,7 +58,7 @@ const EmoticonPicker = forwardRef(({ onEmoticonSelect, onClose }, ref) => {
                                             {emoticonCategories[category].map((emo) => (
                                                 <button
                                                     key={emo.id}
-                                                    onClick={() => handleSelect(emo.url)}
+                                                    onClick={() => handleSelect(emo)}
                                                     className="p-0 rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring aspect-square"
                                                 >
                                                     <div className="relative w-full h-full">

@@ -175,18 +175,24 @@ const ChatRoom = () => {
     };
   }, []);
 
-  const handleSendMessage = async (text, imageUrl = null, type = 'text') => {
-    if (!text?.trim() && !imageUrl) return;
+  const handleSendMessage = async (text, imagePayload = null, type = 'text') => {
+    if (!text?.trim() && !imagePayload) return;
+
+    const messageData = {
+      text,
+      type,
+      sender: chatUser.name,
+      uid: chatUser.uid,
+      authUid: authUser.uid,
+      replyTo: replyingToMessage ? replyingToMessage.id : null,
+    };
+
+    if (imagePayload) {
+      messageData.imageUrl = imagePayload.downloadURL;
+      messageData.storagePath = imagePayload.storagePath;
+    }
     
-    await sendMessage({
-        text,
-        imageUrl,
-        type,
-        sender: chatUser.name,
-        uid: chatUser.uid,
-        authUid: authUser.uid,
-        replyTo: replyingToMessage ? replyingToMessage.id : null,
-    });
+    await sendMessage(messageData);
     
     setReplyingToMessage(null);
     if (type === 'text') {
@@ -199,9 +205,10 @@ const ChatRoom = () => {
     handleSendMessage(newMessage, null, 'text');
   };
 
-  const handleEmoticonSend = (imageUrl) => {
+  const handleEmoticonSend = (emoticon) => {
     setIsEmoticonPickerOpen(false);
-    handleSendMessage(null, imageUrl, 'emoticon');
+    const imagePayload = { downloadURL: emoticon.url, storagePath: emoticon.storagePath };
+    handleSendMessage(null, imagePayload, 'emoticon');
   };
   
   const handleDelete = async (msgToDelete) => {
@@ -218,8 +225,8 @@ const ChatRoom = () => {
   const handleCapture = async (imageBlob) => {
     setIsUploading(true);
     try {
-      const imageUrl = await compressAndUploadImage(imageBlob, `chat_images/${authUser.uid}`);
-      await handleSendMessage('', imageUrl, 'photo');
+      const imagePayload = await compressAndUploadImage(imageBlob, `chat_images/${authUser.uid}`);
+      await handleSendMessage('', imagePayload, 'photo');
     } catch (error) {
       console.error("Image processing or upload error: ", error);
       alert("이미지 처리 중 오류가 발생했습니다.");
