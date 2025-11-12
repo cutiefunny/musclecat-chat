@@ -15,22 +15,14 @@ export const useAuth = () => {
             if (user) {
                 const userData = await getUserProfile(user);
                 
-                // 💡 1호점 익명 로그인 시 displayName 강제 설정
-                if (user.isAnonymous && !userData.displayName) {
-                    const branchProfile = {
-                        displayName: '1호점',
-                        photoURL: '/images/icon.png',
-                    };
-                    await updateUserProfile(user.uid, branchProfile);
-                    // 업데이트된 정보로 userData 다시 할당
-                    Object.assign(userData, branchProfile);
-                }
+                // 💡 [제거] 1호점/2호점 프로필 설정 로직을 각 핸들러로 이동
+                // if (user.isAnonymous && !userData.displayName) { ... }
 
                 const fullUser = {
                     uid: user.uid,
                     email: user.email,
                     isAnonymous: user.isAnonymous,
-                    ...userData
+                    ...userData // 💡 핸들러에서 설정한 displayName, photoURL이 여기에 포함됩니다.
                 };
                 setAuthUser(fullUser);
 
@@ -38,7 +30,7 @@ export const useAuth = () => {
                 
                 setChatUser({
                     uid: role,
-                    name: fullUser.displayName,
+                    name: fullUser.displayName, // 💡 '1호점' 또는 '2호점' 이름이 올바르게 설정됩니다.
                     authUid: user.uid
                 });
             } else {
@@ -60,15 +52,37 @@ export const useAuth = () => {
         }
     };
 
-    // 💡 1호점 로그인 핸들러 추가
+    // 💡 1호점 로그인 핸들러 수정: 로그인 후 즉시 프로필 업데이트
     const handleBranchLogin = async () => {
         try {
-            await signInAnonymously(auth);
+            const userCredential = await signInAnonymously(auth);
+            const user = userCredential.user;
+            await updateUserProfile(user.uid, {
+                displayName: '1호점',
+                photoURL: '/images/icon.png',
+            });
+            // onAuthStateChanged 리스너가 나머지(state 설정)를 처리합니다.
         } catch (error) {
-            console.error("Anonymous login failed:", error);
+            console.error("Anonymous login (Branch 1) failed:", error);
             alert("1호점 로그인에 실패했습니다.");
         }
     };
 
-    return { authUser, loading, handleLogin, handleBranchLogin };
+    // 💡 2호점 로그인 핸들러 추가
+    const handleBranch2Login = async () => {
+        try {
+            const userCredential = await signInAnonymously(auth);
+            const user = userCredential.user;
+            await updateUserProfile(user.uid, {
+                displayName: '2호점',
+                photoURL: '/images/icon.png', // 💡 2호점도 기본 아이콘 사용
+            });
+            // onAuthStateChanged 리스너가 나머지(state 설정)를 처리합니다.
+        } catch (error) {
+            console.error("Anonymous login (Branch 2) failed:", error);
+            alert("2호점 로그인에 실패했습니다.");
+        }
+    };
+
+    return { authUser, loading, handleLogin, handleBranchLogin, handleBranch2Login }; // 💡 handleBranch2Login 반환
 };

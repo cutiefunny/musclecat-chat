@@ -10,7 +10,7 @@ import Image from "next/image";
 import { signOut, auth } from "@/lib/firebase/clientApp";
 
 
-const LoginScreen = ({ handleLogin, handleBranchLogin }) => ( // 💡 handleBranchLogin prop 추가
+const LoginScreen = ({ handleLogin, handleBranchLogin, handleBranch2Login }) => ( // 💡 handleBranch2Login prop 추가
   <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
     <div className="text-center p-10 bg-white rounded-2xl shadow-xl max-w-sm w-full">
       <Image 
@@ -30,7 +30,6 @@ const LoginScreen = ({ handleLogin, handleBranchLogin }) => ( // 💡 handleBran
           >
             Google 계정으로 로그인
           </Button>
-          {/* 💡 1호점 로그인 버튼 추가 */}
           <Button
             size="lg"
             variant="outline"
@@ -39,6 +38,15 @@ const LoginScreen = ({ handleLogin, handleBranchLogin }) => ( // 💡 handleBran
           >
             1호점으로 로그인
           </Button>
+          {/* 💡 2호점 로그인 버튼 추가 */}
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full h-12 text-base"
+            onClick={handleBranch2Login}
+          >
+            2호점으로 로그인
+          </Button>
       </div>
     </div>
   </main>
@@ -46,14 +54,18 @@ const LoginScreen = ({ handleLogin, handleBranchLogin }) => ( // 💡 handleBran
 
 export default function Home() {
   const { chatUser } = useChatStore();
-  const { authUser, loading, handleLogin, handleBranchLogin } = useAuth(); // 💡 handleBranchLogin 가져오기
+  const { authUser, loading, handleLogin, handleBranchLogin, handleBranch2Login } = useAuth(); // 💡 handleBranch2Login 가져오기
 
   if (loading) {
     return <main className="flex items-center justify-center min-h-screen"><p>인증 정보를 확인하는 중...</p></main>;
   }
 
   if (!authUser) {
-    return <LoginScreen handleLogin={handleLogin} handleBranchLogin={handleBranchLogin} />; // 💡 prop으로 전달
+    return <LoginScreen 
+              handleLogin={handleLogin} 
+              handleBranchLogin={handleBranchLogin} 
+              handleBranch2Login={handleBranch2Login} // 💡 prop으로 전달
+           />;
   }
   
   // chatUser가 설정될 때까지 기다립니다.
