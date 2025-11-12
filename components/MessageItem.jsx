@@ -131,18 +131,25 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   const messageContainerId = `message-${msg.id}`;
   const isHighlighted = highlightedMessageId === msg.id;
 
+  const myAvatarSize = "size-8";
+  const mySpacerWidth = "w-8";
+  const otherAvatarSize = isOwner ? "size-10" : "size-8";
+  const otherSpacerWidth = isOwner ? "w-10" : "w-8";
+
   if (isEmoticon) {
     return (
       <div id={messageContainerId} className={cn('flex items-start gap-2 group', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
+        
         {!isMyMessage && showAvatar && (
-          <Avatar className={cn("mt-1 flex-shrink-0", isOwner ? "size-10" : "size-8")}>
+          <Avatar className={cn("mt-1 flex-shrink-0", otherAvatarSize)}>
             <AvatarImage src={avatarSrc} alt={senderName} />
             <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
           </Avatar>
         )}
         
-        {/* 💡 수정된 부분: min-w-0 클래스 추가 */}
-        <div className={cn("flex flex-col gap-1 min-w-0", isMyMessage ? "items-end" : "items-start")}>
+        {(!isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", otherSpacerWidth)} />}
+        
+        <div className={cn("flex flex-col gap-1 flex-1", isMyMessage ? "items-end" : "items-start")}>
           {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
           <div className={cn("flex items-end gap-1", isMyMessage ? "flex-row-reverse" : "flex-row")}>
             <DropdownMenu>
@@ -186,26 +193,37 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
            <ReactionsDisplay reactions={msg.reactions} />
         </div>
 
-        {(!isMyMessage && !showAvatar) && <div className="w-10 flex-shrink-0" />}
+        {isMyMessage && showAvatar && (
+          <Avatar className={cn("mt-1 flex-shrink-0", myAvatarSize)}>
+            <AvatarImage src={avatarSrc} alt={senderName} />
+            <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
+          </Avatar>
+        )}
+        
+        {(isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", mySpacerWidth)} />}
+
       </div>
     );
   }
 
   return (
     <div id={messageContainerId} className={cn('flex gap-2 group', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
+      
       {!isMyMessage && showAvatar && (
-        <Avatar className={cn("mt-1 flex-shrink-0", isOwner ? "size-10" : "size-8")}>
+        <Avatar className={cn("mt-1 flex-shrink-0", otherAvatarSize)}>
           <AvatarImage src={avatarSrc} alt={senderName} />
           <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
         </Avatar>
       )}
 
-      {/* 💡 수정된 부분: min-w-0 클래스 추가 */}
-      <div className={cn("flex flex-col gap-1 min-w-0", isMyMessage ? "items-end" : "items-start")}>
+      {(!isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", otherSpacerWidth)} />}
+
+      <div className={cn("flex flex-col gap-1 flex-1", isMyMessage ? "items-end" : "items-start")}>
         {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
         
         {repliedToMessage && (
-          <div onClick={() => handleReplyClick(repliedToMessage.id)} className="text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md max-w-full flex items-center gap-1.5 cursor-pointer">
+          // 💡 [수정] max-w-full -> max-w-[70%]
+          <div onClick={() => handleReplyClick(repliedToMessage.id)} className="text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md max-w-[70%] flex items-center gap-1.5 cursor-pointer">
             <CornerDownRight className="size-3.5 flex-shrink-0" />
             <span className="font-semibold">{repliedToSenderName}</span>
             <div className="text-gray-500 truncate flex-1">
@@ -220,12 +238,14 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
           </div>
         )}
 
-        <div className={cn("flex items-end gap-1", isMyMessage ? "flex-row-reverse" : "flex-row")}>
+        {/* 💡 [수정] max-w-[70%]를 이곳으로 이동 */}
+        <div className={cn("flex items-end gap-1 max-w-[70%]", isMyMessage ? "flex-row-reverse" : "flex-row")}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Card
                 className={cn(
-                  'max-w-[70%] p-3 rounded-xl break-words whitespace-pre-wrap text-base relative cursor-pointer',
+                  // 💡 [수정] w-[70%] -> w-fit
+                  'w-fit p-3 rounded-xl break-words whitespace-pre-wrap text-base relative cursor-pointer',
                   isMyMessage ? 'bg-[#ffe812] text-gray-900 rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm'
                 )}
               >
@@ -277,7 +297,15 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
         <ReactionsDisplay reactions={msg.reactions} />
       </div>
       
-      {(!isMyMessage && !showAvatar) && <div className="w-10 flex-shrink-0" />}
+      {isMyMessage && showAvatar && (
+        <Avatar className={cn("mt-1 flex-shrink-0", myAvatarSize)}>
+          <AvatarImage src={avatarSrc} alt={senderName} />
+          <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
+        </Avatar>
+      )}
+      
+      {(isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", mySpacerWidth)} />}
+
     </div>
   );
 };
