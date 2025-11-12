@@ -62,10 +62,11 @@ async function sendPushNotificationToOwner(message) {
 
         const messagePayload = {
             token: fcmToken,
-            notification: {
-                title: `${message.sender}님의 새 메시지`,
-                body: notificationBody,
-            },
+            // 💡 [수정] notification 필드를 제거합니다.
+            // notification: {
+            //     title: `${message.sender}님의 새 메시지`,
+            //     body: notificationBody,
+            // },
             data: {
                 title: `${message.sender}님의 새 메시지`,
                 body: notificationBody,
@@ -82,12 +83,14 @@ async function sendPushNotificationToOwner(message) {
               payload: {
                 aps: {
                   sound: "default",
+                  // 💡 [수정] data-only 메시지도 iOS에서 알림을 표시하도록 content-available 추가
+                  "content-available": 1, 
                 },
               },
             },
         };
 
-        console.log(`Sending hybrid message to token: ${fcmToken.substring(0, 20)}...`);
+        console.log(`Sending data-only message to token: ${fcmToken.substring(0, 20)}...`);
         console.log("Payload:", JSON.stringify(messagePayload, null, 2));
 
         const response = await getMessaging().send(messagePayload);
@@ -177,4 +180,3 @@ async function sendBotReply(message, messageId) {
         console.error("Error sending bot reply:", error);
     }
 }
-

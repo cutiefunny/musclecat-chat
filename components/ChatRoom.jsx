@@ -64,7 +64,7 @@ const ChatRoom = () => {
   useEffect(() => {
     // 💡 컴포넌트 마운트 시 메시지 읽음 처리
     if (authUser?.uid) {
-        markMessagesAsRead(authUser.uid);
+        markMessagesAsRead(authUser?.uid);
     }
   }, [authUser?.uid]);
 
@@ -207,7 +207,11 @@ const ChatRoom = () => {
 
   const handleEmoticonSend = (emoticon) => {
     setIsEmoticonPickerOpen(false);
-    const imagePayload = { downloadURL: emoticon.url, storagePath: emoticon.storagePath };
+    // 💡 수정된 부분: storagePath가 undefined일 경우 null로 대체
+    const imagePayload = { 
+      downloadURL: emoticon.url, 
+      storagePath: emoticon.storagePath || null 
+    };
     handleSendMessage(null, imagePayload, 'emoticon');
   };
   

@@ -15,7 +15,13 @@ const EmoticonManager = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
     const [newCategory, setNewCategory] = useState('');
-    const fileInputRef = useRef(null);
+    
+    // 💡 [수정] 현재 선택된 카테고리를 저장할 state 추가
+    const [selectedCategory, setSelectedCategory] = useState(null); 
+    
+    // 💡 [수정] 파일 입력 ref는 하나만 유지
+    const fileInputRef = useRef(null); 
+    
     const dragItem = useRef(null);
     const dragOverItem = useRef(null);
 
@@ -32,20 +38,24 @@ const EmoticonManager = () => {
         return () => unsubscribe();
     }, []);
 
-    const handleFileUpload = async (event, category) => {
+    // 💡 [수정] handleFileUpload가 category 인자 대신 selectedCategory state를 사용하도록 변경
+    const handleFileUpload = async (event) => {
         const file = event.target.files[0];
-        if (!file) return;
+        // 💡 [수정] 선택된 카테고리가 없으면 중단
+        if (!file || !selectedCategory) return;
 
         setIsUploading(true);
         try {
-            const order = emoticons[category]?.length || 0;
-            await addEmoticon(file, category, order);
+            // 💡 [수정] state에서 카테고리 이름을 가져옴
+            const order = emoticons[selectedCategory]?.length || 0;
+            await addEmoticon(file, selectedCategory, order);
         } catch (error) {
             console.error("Error uploading emoticon:", error);
             alert("이모티콘 업로드에 실패했습니다.");
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
+            setSelectedCategory(null); // 💡 [수정] 완료 후 state 초기화
         }
     };
 
@@ -97,6 +107,15 @@ const EmoticonManager = () => {
                 {/* Title is now in the parent component */}
             </CardHeader>
             <CardContent>
+                {/* 💡 [수정] 단일 파일 입력 엘리먼트를 컴포넌트 최상단 (map 바깥)으로 이동 */}
+                <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload} // 💡 [수정] category 인자 제거
+                    className="hidden"
+                />
+
                 <form onSubmit={handleAddCategory} className="flex items-center gap-2 mb-6">
                     <Label htmlFor="new-category-input" className="sr-only">새 카테고리</Label>
                     <Input
@@ -118,15 +137,17 @@ const EmoticonManager = () => {
                             <div key={category}>
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="text-lg font-semibold">{category}</h3>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        ref={fileInputRef}
-                                        onChange={(e) => handleFileUpload(e, category)}
-                                        className="hidden"
-                                    />
-                                    <Button onClick={() => fileInputRef.current.click()} disabled={isUploading} size="sm">
-                                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                                    {/* 💡 [수정] 루프 내의 input 태그 제거 */}
+                                    {/* 💡 [수정] 버튼 클릭 시 state를 설정하고 ref를 클릭하도록 변경 */}
+                                    <Button 
+                                        onClick={() => {
+                                            setSelectedCategory(category);
+                                            fileInputRef.current.click();
+                                        }} 
+                                        disabled={isUploading} 
+                                        size="sm"
+                                    >
+                                        {isUploading && selectedCategory === category ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                                         추가
                                     </Button>
                                 </div>
