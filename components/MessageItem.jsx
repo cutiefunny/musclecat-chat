@@ -222,8 +222,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
         {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
         
         {repliedToMessage && (
-          // 💡 [수정] max-w-full -> max-w-[70%]
-          <div onClick={() => handleReplyClick(repliedToMessage.id)} className="text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md max-w-[70%] flex items-center gap-1.5 cursor-pointer">
+          // 💡 [수정] max-w-[70%] -> max-w-[90%] sm:max-w-[70%]
+          <div onClick={() => handleReplyClick(repliedToMessage.id)} className="text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md max-w-[90%] sm:max-w-[70%] flex items-center gap-1.5 cursor-pointer">
             <CornerDownRight className="size-3.5 flex-shrink-0" />
             <span className="font-semibold">{repliedToSenderName}</span>
             <div className="text-gray-500 truncate flex-1">
@@ -238,8 +238,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
           </div>
         )}
 
-        {/* 💡 [수정] max-w-[70%]를 이곳으로 이동 */}
-        <div className={cn("flex items-end gap-1 max-w-[70%]", isMyMessage ? "flex-row-reverse" : "flex-row")}>
+        {/* 💡 [수정] max-w-[70%] -> max-w-[90%] sm:max-w-[70%] */}
+        <div className={cn("flex items-end gap-1 max-w-[90%] sm:max-w-[70%]", isMyMessage ? "flex-row-reverse" : "flex-row")}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Card
