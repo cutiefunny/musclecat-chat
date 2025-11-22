@@ -7,12 +7,13 @@ const useChatStore = create((set) => ({
   messages: [],
   users: [],
   isBotActive: true,
+  // 💡 [추가] 메시지 모달(답장/삭제) 활성화 상태 (기본값: true)
+  isMessageModalActive: true, 
   typingUsers: [],
   replyingToMessage: null,
   highlightedMessageId: null,
-  unreadCount: 0, // 💡 읽지 않은 메시지 수 상태 추가
+  unreadCount: 0,
 
-  // 💡 무한 스크롤 상태 추가
   lastLoadedMessage: null,
   hasMoreMessages: true,
 
@@ -20,7 +21,6 @@ const useChatStore = create((set) => ({
   setChatUser: (user) => set({ chatUser: user }),
   setMessages: (messages) => set({ messages }),
   
-  // 💡 이전 메시지를 배열 앞에 추가하는 액션
   addPreviousMessages: (newMessages) => set((state) => ({
     messages: [...newMessages, ...state.messages],
   })),
@@ -28,12 +28,15 @@ const useChatStore = create((set) => ({
   setUsers: (users) => set({ users }),
   setBotActiveState: (isActive) => set({ isBotActive: isActive }),
   toggleBotActive: () => set((state) => ({ isBotActive: !state.isBotActive })),
+  
+  // 💡 [추가] 모달 활성화 상태 변경 액션
+  setMessageModalActiveState: (isActive) => set({ isMessageModalActive: isActive }),
+
   setTypingUsers: (typingUsers) => set({ typingUsers }),
   setReplyingToMessage: (message) => set({ replyingToMessage: message }),
   setHighlightedMessageId: (messageId) => set({ highlightedMessageId: messageId }),
-  setUnreadCount: (count) => set({ unreadCount: count }), // 💡 액션 추가
+  setUnreadCount: (count) => set({ unreadCount: count }),
   
-  // 💡 무한 스크롤 상태 업데이트 액션 추가
   setLastLoadedMessage: (doc) => set({ lastLoadedMessage: doc }),
   setHasMoreMessages: (hasMore) => set({ hasMoreMessages: hasMore }),
 }));

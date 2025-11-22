@@ -17,7 +17,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import NextImage from 'next/image';
 import { cn, formatKakaoTime } from '@/lib/utils';
-import { SmilePlus, MessageSquareReply, CornerDownRight, Smile } from 'lucide-react';
+import { MessageSquareReply, CornerDownRight, Smile } from 'lucide-react';
 import { addReaction } from '@/lib/firebase/firebaseService';
 
 const ReactionPicker = ({ onSelect, messageId, authUser }) => {
@@ -38,7 +38,7 @@ const ReactionPicker = ({ onSelect, messageId, authUser }) => {
 };
 
 const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onReply, chatUser, highlightedMessageId, setHighlightedMessageId }) => {
-  const { authUser, users, messages } = useChatStore();
+  const { authUser, users, messages, isMessageModalActive } = useChatStore();
   const formattedTime = msg.timestamp ? formatKakaoTime(msg.timestamp) : '';
   const isEmoticon = msg.type === 'emoticon';
 
@@ -136,58 +136,82 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   const otherAvatarSize = isOwner ? "size-10" : "size-8";
   const otherSpacerWidth = isOwner ? "w-10" : "w-8";
 
+  // 💡 래퍼 컴포넌트 수정: 팝업 OFF 시 클릭 이벤트도 제거
+  const MessageWrapper = ({ children, isImage = false }) => {
+    if (!isMessageModalActive) {
+        // 모달 비활성화 시: 클릭 이벤트(onClick)와 커서 스타일(cursor-pointer) 제거
+        return isImage ? (
+            <div className="relative w-[150px] h-[150px]">
+                {children}
+            </div>
+        ) : children;
+    }
+
+    // 모달 활성화 시: 기존대로 DropdownMenu 적용
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                {isImage ? (
+                    <div className="relative w-[150px] h-[150px] cursor-pointer">
+                        {children}
+                    </div>
+                ) : (
+                    children
+                )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => onReply(msg)} className="cursor-pointer">
+                    <MessageSquareReply className="mr-2 h-4 w-4" />
+                    답장하기
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                        <Smile className="mr-2 h-4 w-4" />
+                        반응 남기기
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                            <ReactionPicker onSelect={handleReactionSelect} messageId={msg.id} authUser={authUser} />
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                </DropdownMenuSub>
+                {canDelete && (
+                    <DropdownMenuItem onClick={() => onDelete(msg)} className="text-red-500 cursor-pointer">
+                        삭제하기
+                    </DropdownMenuItem>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+  };
+
   if (isEmoticon) {
     return (
       <div id={messageContainerId} className={cn('flex items-start gap-2 group', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
-        
         {!isMyMessage && showAvatar && (
           <Avatar className={cn("mt-1 flex-shrink-0", otherAvatarSize)}>
             <AvatarImage src={avatarSrc} alt={senderName} />
             <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
           </Avatar>
         )}
-        
         {(!isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", otherSpacerWidth)} />}
         
         <div className={cn("flex flex-col gap-1 flex-1", isMyMessage ? "items-end" : "items-start")}>
           {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
           <div className={cn("flex items-end gap-1", isMyMessage ? "flex-row-reverse" : "flex-row")}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div className="relative w-[150px] h-[150px] cursor-pointer">
-                  <NextImage
+            
+            {/* 이모티콘 래퍼 사용 */}
+            <MessageWrapper isImage={true}>
+                <NextImage
                     src={msg.imageUrl}
                     alt="emoticon"
                     fill
                     sizes="150px"
                     className="object-contain"
                     unoptimized
-                  />
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => onReply(msg)} className="cursor-pointer">
-                  <MessageSquareReply className="mr-2 h-4 w-4" />
-                  답장하기
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Smile className="mr-2 h-4 w-4" />
-                    반응 남기기
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent>
-                       <ReactionPicker onSelect={handleReactionSelect} messageId={msg.id} authUser={authUser} />
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-                {canDelete && (
-                  <DropdownMenuItem onClick={() => onDelete(msg)} className="text-red-500 cursor-pointer">
-                    삭제하기
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                />
+            </MessageWrapper>
+
             <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
           </div>
            <ReactionsDisplay reactions={msg.reactions} />
@@ -199,30 +223,25 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
             <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
           </Avatar>
         )}
-        
         {(isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", mySpacerWidth)} />}
-
       </div>
     );
   }
 
   return (
     <div id={messageContainerId} className={cn('flex gap-2 group', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
-      
       {!isMyMessage && showAvatar && (
         <Avatar className={cn("mt-1 flex-shrink-0", otherAvatarSize)}>
           <AvatarImage src={avatarSrc} alt={senderName} />
           <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
         </Avatar>
       )}
-
       {(!isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", otherSpacerWidth)} />}
 
       <div className={cn("flex flex-col gap-1 flex-1", isMyMessage ? "items-end" : "items-start")}>
         {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
         
         {repliedToMessage && (
-          // 💡 [수정] max-w-[70%] -> max-w-[90%] sm:max-w-[70%]
           <div onClick={() => handleReplyClick(repliedToMessage.id)} className="text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md max-w-[90%] sm:max-w-[70%] flex items-center gap-1.5 cursor-pointer">
             <CornerDownRight className="size-3.5 flex-shrink-0" />
             <span className="font-semibold">{repliedToSenderName}</span>
@@ -238,19 +257,29 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
           </div>
         )}
 
-        {/* 💡 [수정] max-w-[70%] -> max-w-[90%] sm:max-w-[70%] */}
         <div className={cn("flex items-end gap-1 max-w-[90%] sm:max-w-[70%]", isMyMessage ? "flex-row-reverse" : "flex-row")}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          
+          {/* 텍스트/사진 메시지 래퍼 사용 */}
+          <MessageWrapper>
               <Card
                 className={cn(
-                  // 💡 [수정] w-[70%] -> w-fit
-                  'w-fit p-3 rounded-xl break-words whitespace-pre-wrap text-base relative cursor-pointer',
+                  'w-fit p-3 rounded-xl break-words whitespace-pre-wrap text-base relative',
+                  // 💡 수정: 모달 활성화 상태에 따라 커서 스타일 변경
+                  isMessageModalActive ? 'cursor-pointer' : '', 
                   isMyMessage ? 'bg-[#ffe812] text-gray-900 rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm'
                 )}
               >
                 {msg.imageUrl && (
-                  <div onClick={() => onImageClick(msg.imageUrl)} className="cursor-pointer">
+                  <div 
+                    // 💡 수정: 모달 활성화 상태일 때만 클릭 이벤트와 커서 스타일 적용
+                    onClick={(e) => { 
+                      if (isMessageModalActive) {
+                        e.stopPropagation(); 
+                        onImageClick(msg.imageUrl); 
+                      }
+                    }} 
+                    className={cn(isMessageModalActive ? "cursor-pointer" : "")}
+                  >
                     <NextImage
                       src={msg.imageUrl}
                       alt="채팅 이미지"
@@ -265,33 +294,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                 )}
                 <p>{msg.text}</p>
               </Card>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => onReply(msg)} className="cursor-pointer">
-                <MessageSquareReply className="mr-2 h-4 w-4" />
-                답장하기
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Smile className="mr-2 h-4 w-4" />
-                  반응 남기기
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent>
-                    <ReactionPicker onSelect={handleReactionSelect} messageId={msg.id} authUser={authUser} />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              {canDelete && (
-                <DropdownMenuItem
-                  onClick={() => onDelete(msg)}
-                  className="text-red-500 cursor-pointer"
-                >
-                  삭제하기
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          </MessageWrapper>
+
           <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
         </div>
         <ReactionsDisplay reactions={msg.reactions} />
@@ -303,9 +307,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
           <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
         </Avatar>
       )}
-      
       {(isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", mySpacerWidth)} />}
-
     </div>
   );
 };

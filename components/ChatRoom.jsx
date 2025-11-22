@@ -9,7 +9,8 @@ import { useBot } from '@/hooks/useBot';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBotStatus } from '@/hooks/useBotStatus';
-import { useUnreadMessages } from '@/hooks/useUnreadMessages'; // 💡 import
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { useUiSettings } from '@/hooks/useUiSettings'; // 💡 useUiSettings 훅 import
 import { sendMessage, deleteMessage, compressAndUploadImage, markMessagesAsRead } from '@/lib/firebase/firebaseService';
 import { signOut, auth } from '@/lib/firebase/clientApp';
 import { formatDateSeparator } from '@/lib/utils';
@@ -21,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, LogOut, Loader2, Smile, User, X } from 'lucide-react';
-import { Badge } from '@/components/ui/badge'; // 💡 Badge import
+import { Badge } from '@/components/ui/badge';
 
 // Other Components
 import CameraCapture from './CameraCapture';
@@ -54,7 +55,8 @@ const ChatRoom = () => {
 
   useChatData();
   useBot();
-  useUnreadMessages(); // 💡 훅 호출
+  useUnreadMessages();
+  useUiSettings(); // 💡 UI 설정 구독 훅 호출
   const { handleTyping } = useTypingIndicator();
   usePushNotifications();
   const { isBotActive, handleToggleBot } = useBotStatus();
