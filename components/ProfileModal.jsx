@@ -13,9 +13,14 @@ const ProfileModal = ({ onClose }) => {
   const { authUser, users } = useChatStore();
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
 
+  // 💡 만약 이미 잘못된 데이터(객체)가 저장되어 있다면 문자열이 아니므로 미리보기에서 제외하거나 안전하게 처리
+  const initialPhotoURL = typeof currentUserProfile?.photoURL === 'string' 
+    ? currentUserProfile.photoURL 
+    : null;
+
   const [displayName, setDisplayName] = useState(currentUserProfile?.displayName || '');
   const [newImage, setNewImage] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(currentUserProfile?.photoURL || null);
+  const [previewUrl, setPreviewUrl] = useState(initialPhotoURL);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -25,9 +30,9 @@ const ProfileModal = ({ onClose }) => {
       reader.onloadend = () => setPreviewUrl(reader.result);
       reader.readAsDataURL(newImage);
     } else {
-      setPreviewUrl(currentUserProfile?.photoURL || null);
+      setPreviewUrl(initialPhotoURL);
     }
-  }, [newImage, currentUserProfile]);
+  }, [newImage, initialPhotoURL]); // 의존성 배열 변수명 변경
 
   const handleImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -40,9 +45,13 @@ const ProfileModal = ({ onClose }) => {
     setIsSaving(true);
     
     try {
-      let photoURL = currentUserProfile?.photoURL;
+      // 기존 URL이 객체로 잘못 저장되어 있을 수 있으므로 안전하게 처리
+      let photoURL = typeof currentUserProfile?.photoURL === 'string' ? currentUserProfile.photoURL : null;
+      
       if (newImage) {
-        photoURL = await compressAndUploadImage(newImage, `profile_pictures`);
+        // 💡 [수정] 반환된 객체에서 downloadURL만 추출하여 사용
+        const uploadResult = await compressAndUploadImage(newImage, `profile_pictures`);
+        photoURL = uploadResult.downloadURL;
       }
       
       await updateUserProfile(authUser.uid, {

@@ -6,11 +6,12 @@ import useChatStore from '@/store/chat-store';
 import { useChatData } from '@/hooks/useChatData';
 import { useInfiniteScrollMessages } from '@/hooks/useInfiniteScrollMessages';
 import { useBot } from '@/hooks/useBot';
-import { useTypingIndicator } from '@/hooks/useTypingIndicator';
+// 💡 [삭제] useTypingIndicator import 제거
+// import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBotStatus } from '@/hooks/useBotStatus';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
-import { useUiSettings } from '@/hooks/useUiSettings'; // 💡 useUiSettings 훅 import
+import { useUiSettings } from '@/hooks/useUiSettings';
 import { sendMessage, deleteMessage, compressAndUploadImage, markMessagesAsRead } from '@/lib/firebase/firebaseService';
 import { signOut, auth } from '@/lib/firebase/clientApp';
 import { formatDateSeparator } from '@/lib/utils';
@@ -30,10 +31,12 @@ import MessageItem from './MessageItem';
 import ImageModal from './ImageModal';
 import EmoticonPicker from './EmoticonPicker';
 import ProfileModal from './ProfileModal';
-import TypingIndicator from './TypingIndicator';
+// 💡 [삭제] TypingIndicator import 제거
+// import TypingIndicator from './TypingIndicator';
 
 const ChatRoom = () => {
-  const { authUser, chatUser, users, typingUsers, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId, unreadCount } = useChatStore();
+  // 💡 [수정] typingUsers 제거
+  const { authUser, chatUser, users, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId, unreadCount } = useChatStore();
   
   const { messages, isLoading: isLoadingMore, isInitialLoad, hasMore, loadMore } = useInfiniteScrollMessages();
   
@@ -56,15 +59,17 @@ const ChatRoom = () => {
   useChatData();
   useBot();
   useUnreadMessages();
-  useUiSettings(); // 💡 UI 설정 구독 훅 호출
-  const { handleTyping } = useTypingIndicator();
+  useUiSettings();
+  
+  // 💡 [삭제] 타이핑 인디케이터 훅 호출 제거
+  // const { handleTyping } = useTypingIndicator();
+  
   usePushNotifications();
   const { isBotActive, handleToggleBot } = useBotStatus();
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
   
   useEffect(() => {
-    // 💡 컴포넌트 마운트 시 메시지 읽음 처리
     if (authUser?.uid) {
         markMessagesAsRead(authUser?.uid);
     }
@@ -101,12 +106,9 @@ const ChatRoom = () => {
     if (!viewport) return;
 
     if (isInitialLoad) {
-      // 초기 로딩 시에는 아무것도 하지 않음
       return;
     }
     
-    // 💡 스크롤 로직 개선
-    // 1. 초기 렌더링 후 맨 아래로 스크롤
     if (!didInitialScroll.current && messages.length > 0) {
       viewport.scrollTop = viewport.scrollHeight;
       didInitialScroll.current = true;
@@ -114,22 +116,18 @@ const ChatRoom = () => {
       return;
     }
 
-    // 2. 새로운 메시지가 도착했을 때만 맨 아래로 스크롤
     const newLastMessage = messages[messages.length - 1];
     if (newLastMessage?.id !== lastMessageIdRef.current) {
-        // 💡 새 메시지 도착 시 읽음 처리
         if (authUser?.uid) {
             markMessagesAsRead(authUser.uid);
         }
-      // 사용자가 맨 아래에 있을 때만 자동으로 스크롤
-      if (viewport.scrollHeight - viewport.clientHeight <= viewport.scrollTop + 100) { // 100px의 여유
+      if (viewport.scrollHeight - viewport.clientHeight <= viewport.scrollTop + 100) {
         setTimeout(() => {
             scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }, 100);
       }
       lastMessageIdRef.current = newLastMessage?.id;
     } 
-    // 3. 이전 메시지를 불러왔을 때 스크롤 위치 유지
     else if (scrollInfoRef.current.isLoadingMore) {
       const newScrollHeight = viewport.scrollHeight;
       viewport.scrollTop = newScrollHeight - scrollInfoRef.current.previousScrollHeight;
@@ -141,7 +139,6 @@ const ChatRoom = () => {
     const viewport = scrollViewportRef.current;
     if (viewport) {
       if (viewport.scrollTop === 0 && hasMore && !isLoadingMore) {
-        // 이전 메시지를 불러오기 직전의 스크롤 높이 저장
         scrollInfoRef.current = {
           isLoadingMore: true,
           previousScrollHeight: viewport.scrollHeight,
@@ -209,7 +206,6 @@ const ChatRoom = () => {
 
   const handleEmoticonSend = (emoticon) => {
     setIsEmoticonPickerOpen(false);
-    // 💡 수정된 부분: storagePath가 undefined일 경우 null로 대체
     const imagePayload = { 
       downloadURL: emoticon.url, 
       storagePath: emoticon.storagePath || null 
@@ -269,7 +265,6 @@ const ChatRoom = () => {
                         <AvatarImage src={currentUserProfile?.photoURL} alt={currentUserProfile?.displayName} />
                         <AvatarFallback>{currentUserProfile?.displayName?.charAt(0) || '?'}</AvatarFallback>
                     </Avatar>
-                    {/* 💡 읽지 않은 메시지 뱃지 */}
                     {unreadCount > 0 && (
                         <Badge variant="destructive" className="absolute -top-1 -right-2 h-5 w-5 p-0 flex items-center justify-center">
                             {unreadCount}
@@ -332,7 +327,10 @@ const ChatRoom = () => {
               </React.Fragment>
             );
           })}
-          {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />}
+          
+          {/* 💡 [삭제] TypingIndicator 렌더링 제거 */}
+          {/* {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />} */}
+          
           <div ref={scrollTargetRef} />
         </div>
       </ScrollArea>
@@ -366,7 +364,7 @@ const ChatRoom = () => {
             <Textarea 
               value={newMessage} 
               onChange={(e) => setNewMessage(e.target.value)} 
-              onInput={handleTyping}
+              // 💡 [삭제] onInput={handleTyping} 제거
               placeholder="메시지를 입력하세요..." 
               className="pr-12 resize-none rounded-xl border-gray-300 focus:border-yellow-400 focus:ring-yellow-400 bg-white" 
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit(e); } }} 

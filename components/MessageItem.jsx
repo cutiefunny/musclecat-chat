@@ -38,10 +38,13 @@ const ReactionPicker = ({ onSelect, messageId, authUser }) => {
 };
 
 const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onReply, chatUser, highlightedMessageId, setHighlightedMessageId }) => {
+  // 💡 users: 실시간 사용자 목록 (프로필 변경 시 자동 업데이트됨)
   const { authUser, users, messages, isMessageModalActive } = useChatStore();
+  
   const formattedTime = msg.timestamp ? formatKakaoTime(msg.timestamp) : '';
   const isEmoticon = msg.type === 'emoticon';
 
+  // 💡 [핵심 로직] 메시지의 authUid를 이용해 최신 사용자 프로필 찾기
   const userProfile = users.find(u => u.id === msg.authUid);
   const isOwner = msg.uid === 'owner';
 
@@ -51,6 +54,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
     senderName = '근육고양이봇';
     avatarSrc = '/images/nyanya.jpg';
   } else {
+    // 💡 최신 프로필이 있으면 그것을 사용하고, 없으면(탈퇴 등) 메시지 당시의 정보를 사용
     senderName = userProfile?.displayName || msg.sender;
     avatarSrc = userProfile?.photoURL || '/images/icon.png';
   }
@@ -58,6 +62,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   const canDelete = isMyMessage || (chatUser?.uid === 'owner' && msg.uid === 'bot-01');
 
   const repliedToMessage = msg.replyTo ? messages.find(m => m.id === msg.replyTo) : null;
+  // 💡 답장 대상의 프로필도 실시간 정보로 업데이트
   const repliedToUserProfile = repliedToMessage ? users.find(u => u.id === repliedToMessage.authUid) : null;
   const repliedToSenderName = repliedToUserProfile?.displayName || repliedToMessage?.sender;
 
@@ -99,6 +104,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
       if (!acc[reaction.emoji]) {
         acc[reaction.emoji] = { users: [], count: 0 };
       }
+      // 💡 반응 남긴 사람의 이름도 실시간 정보 반영
       const reactorProfile = users.find(u => u.id === reaction.user);
       acc[reaction.emoji].users.push(reactorProfile?.displayName || 'Unknown');
       acc[reaction.emoji].count++;
@@ -136,10 +142,9 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   const otherAvatarSize = isOwner ? "size-10" : "size-8";
   const otherSpacerWidth = isOwner ? "w-10" : "w-8";
 
-  // 💡 래퍼 컴포넌트 수정: 팝업 OFF 시 클릭 이벤트도 제거
+  // 래퍼 컴포넌트: 팝업 OFF 시 클릭 이벤트도 제거
   const MessageWrapper = ({ children, isImage = false }) => {
     if (!isMessageModalActive) {
-        // 모달 비활성화 시: 클릭 이벤트(onClick)와 커서 스타일(cursor-pointer) 제거
         return isImage ? (
             <div className="relative w-[150px] h-[150px]">
                 {children}
@@ -147,7 +152,6 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
         ) : children;
     }
 
-    // 모달 활성화 시: 기존대로 DropdownMenu 적용
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -199,8 +203,6 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
         <div className={cn("flex flex-col gap-1 flex-1", isMyMessage ? "items-end" : "items-start")}>
           {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
           <div className={cn("flex items-end gap-1", isMyMessage ? "flex-row-reverse" : "flex-row")}>
-            
-            {/* 이모티콘 래퍼 사용 */}
             <MessageWrapper isImage={true}>
                 <NextImage
                     src={msg.imageUrl}
@@ -211,7 +213,6 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                     unoptimized
                 />
             </MessageWrapper>
-
             <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
           </div>
            <ReactionsDisplay reactions={msg.reactions} />
@@ -258,20 +259,16 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
         )}
 
         <div className={cn("flex items-end gap-1 max-w-[90%] sm:max-w-[70%]", isMyMessage ? "flex-row-reverse" : "flex-row")}>
-          
-          {/* 텍스트/사진 메시지 래퍼 사용 */}
           <MessageWrapper>
               <Card
                 className={cn(
                   'w-fit p-3 rounded-xl break-words whitespace-pre-wrap text-base relative',
-                  // 💡 수정: 모달 활성화 상태에 따라 커서 스타일 변경
                   isMessageModalActive ? 'cursor-pointer' : '', 
                   isMyMessage ? 'bg-[#ffe812] text-gray-900 rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm'
                 )}
               >
                 {msg.imageUrl && (
                   <div 
-                    // 💡 수정: 모달 활성화 상태일 때만 클릭 이벤트와 커서 스타일 적용
                     onClick={(e) => { 
                       if (isMessageModalActive) {
                         e.stopPropagation(); 
@@ -295,7 +292,6 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                 <p>{msg.text}</p>
               </Card>
           </MessageWrapper>
-
           <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
         </div>
         <ReactionsDisplay reactions={msg.reactions} />
