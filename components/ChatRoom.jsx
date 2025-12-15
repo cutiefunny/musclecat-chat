@@ -6,8 +6,6 @@ import useChatStore from '@/store/chat-store';
 import { useChatData } from '@/hooks/useChatData';
 import { useInfiniteScrollMessages } from '@/hooks/useInfiniteScrollMessages';
 import { useBot } from '@/hooks/useBot';
-// 💡 [삭제] useTypingIndicator import 제거
-// import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBotStatus } from '@/hooks/useBotStatus';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
@@ -31,11 +29,8 @@ import MessageItem from './MessageItem';
 import ImageModal from './ImageModal';
 import EmoticonPicker from './EmoticonPicker';
 import ProfileModal from './ProfileModal';
-// 💡 [삭제] TypingIndicator import 제거
-// import TypingIndicator from './TypingIndicator';
 
 const ChatRoom = () => {
-  // 💡 [수정] typingUsers 제거
   const { authUser, chatUser, users, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId, unreadCount } = useChatStore();
   
   const { messages, isLoading: isLoadingMore, isInitialLoad, hasMore, loadMore } = useInfiniteScrollMessages();
@@ -61,9 +56,6 @@ const ChatRoom = () => {
   useUnreadMessages();
   useUiSettings();
   
-  // 💡 [삭제] 타이핑 인디케이터 훅 호출 제거
-  // const { handleTyping } = useTypingIndicator();
-  
   usePushNotifications();
   const { isBotActive, handleToggleBot } = useBotStatus();
 
@@ -76,28 +68,22 @@ const ChatRoom = () => {
   }, [authUser?.uid]);
 
 
+  // 💡 [수정] 뒤로가기 방지 로직 개선
+  // 안드로이드 앱 고정 시 뒤로가기를 누르면 앱이 리로드(스플래시 화면)되는 현상을 막기 위해
+  // replaceState 대신 pushState를 사용하여 히스토리 스택을 하나 더 쌓아둡니다.
   useEffect(() => {
-    const CHAT_ROOM_STATE = { page: 'chatRoom' };
-    const currentUrl = location.href;
+    // 현재 상태를 history stack에 강제로 추가하여 "뒤로가기" 할 공간을 만듭니다.
+    history.pushState(null, '', window.location.href);
 
-    const preventBackNavigation = () => {
-      history.pushState(CHAT_ROOM_STATE, '', currentUrl);
+    const handlePopState = () => {
+      // 뒤로가기가 감지되면(popstate), 다시 상태를 push하여 제자리에 머물게 합니다.
+      history.pushState(null, '', window.location.href);
     };
 
-    history.replaceState(CHAT_ROOM_STATE, '', currentUrl);
-
-    window.addEventListener('popstate', preventBackNavigation);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        preventBackNavigation();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('popstate', handlePopState);
 
     return () => {
-      window.removeEventListener('popstate', preventBackNavigation);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('popstate', handlePopState);
     };
   }, []);
 
@@ -328,9 +314,6 @@ const ChatRoom = () => {
             );
           })}
           
-          {/* 💡 [삭제] TypingIndicator 렌더링 제거 */}
-          {/* {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />} */}
-          
           <div ref={scrollTargetRef} />
         </div>
       </ScrollArea>
@@ -364,7 +347,6 @@ const ChatRoom = () => {
             <Textarea 
               value={newMessage} 
               onChange={(e) => setNewMessage(e.target.value)} 
-              // 💡 [삭제] onInput={handleTyping} 제거
               placeholder="메시지를 입력하세요..." 
               className="pr-12 resize-none rounded-xl border-gray-300 focus:border-yellow-400 focus:ring-yellow-400 bg-white" 
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit(e); } }} 
