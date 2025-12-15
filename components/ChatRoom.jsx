@@ -18,9 +18,9 @@ import { formatDateSeparator } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, LogOut, Loader2, Smile, User, X } from 'lucide-react';
+import { Camera, LogOut, Loader2, Smile, User, X, Keyboard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 // Other Components
@@ -42,6 +42,10 @@ const ChatRoom = () => {
   const [isEmoticonPickerOpen, setIsEmoticonPickerOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   
+  // 외부 키보드 모드 상태 및 입력창 Ref
+  const [isExternalKeyboardMode, setIsExternalKeyboardMode] = useState(false);
+  const inputRef = useRef(null);
+
   const scrollViewportRef = useRef(null);
   const scrollTargetRef = useRef(null);
   const emoticonPickerRef = useRef(null);
@@ -67,23 +71,115 @@ const ChatRoom = () => {
     }
   }, [authUser?.uid]);
 
-
-  // 💡 [수정] 뒤로가기 방지 로직 개선
-  // 안드로이드 앱 고정 시 뒤로가기를 누르면 앱이 리로드(스플래시 화면)되는 현상을 막기 위해
-  // replaceState 대신 pushState를 사용하여 히스토리 스택을 하나 더 쌓아둡니다.
+  // [설정 로드] 로컬 스토리지에서 외부 키보드 모드 불러오기
   useEffect(() => {
-    // 현재 상태를 history stack에 강제로 추가하여 "뒤로가기" 할 공간을 만듭니다.
-    history.pushState(null, '', window.location.href);
+    const savedMode = localStorage.getItem('musclecat_external_keyboard_mode');
+    if (savedMode === 'true') {
+      setIsExternalKeyboardMode(true);
+    }
+  }, []);
 
-    const handlePopState = () => {
-      // 뒤로가기가 감지되면(popstate), 다시 상태를 push하여 제자리에 머물게 합니다.
-      history.pushState(null, '', window.location.href);
+  // 💡 [수정] 통합된 포커스 복구 로직
+  // 이모티콘뿐만 아니라 카메라, 사진, 프로필 등 '모든 모달'이 닫히는 순간을 감지합니다.
+  useEffect(() => {
+    const isAnyModalOpen = isCameraOpen || isEmoticonPickerOpen || selectedImageUrl || isProfileModalOpen;
+
+    // 외부 키보드 모드이고, 모든 모달이 닫힌 상태라면 입력창에 포커스
+    if (isExternalKeyboardMode && !isAnyModalOpen) {
+      // 상태 변경 직후 DOM 렌더링을 확실히 기다리기 위해 약간의 지연(50ms)을 둡니다.
+      setTimeout(() => {
+        // 모달이 닫힌 후 다른 요소로 포커스가 튀는 것을 방지하고 입력창으로 강제 이동
+        inputRef.current?.focus();
+      }, 50);
+    }
+  }, [isExternalKeyboardMode, isCameraOpen, isEmoticonPickerOpen, selectedImageUrl, isProfileModalOpen]);
+
+  // 외부 키보드 모드 토글 핸들러
+  const toggleExternalKeyboardMode = () => {
+    const newMode = !isExternalKeyboardMode;
+    setIsExternalKeyboardMode(newMode);
+    localStorage.setItem('musclecat_external_keyboard_mode', newMode);
+    
+    if (newMode) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+      alert("⌨️ 외부 키보드 모드가 켜졌습니다.\n배경을 눌러도 입력창 포커스가 유지됩니다.");
+    }
+  };
+
+  // 외부 키보드 모드일 때: 배경 클릭 시 입력창으로 포커스 되돌리기
+  useEffect(() => {
+    if (!isExternalKeyboardMode) return;
+
+    const handleGlobalClick = (e) => {
+      // 입력창, 버튼, 링크 등 상호작용 요소를 클릭한 경우는 무시
+      if (e.target.closest('button, a, [role="button"], textarea, input, .lucide')) return;
+
+      setTimeout(() => {
+        if (document.activeElement !== inputRef.current) {
+          inputRef.current?.focus();
+        }
+      }, 50);
     };
 
-    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [isExternalKeyboardMode]);
+
+  // 1분 비활성 감지 로직 (타임아웃 시 모달 자동 닫기)
+  useEffect(() => {
+    const isAnyModeOpen = isCameraOpen || isEmoticonPickerOpen || selectedImageUrl || isProfileModalOpen;
+    if (!isAnyModeOpen) return;
+
+    // 💡 개발자님 요청하신 '자동 닫힘' 시간이 여기서 설정됩니다 (현재 1분 = 60000ms)
+    const INACTIVITY_TIMEOUT = 60000; 
+    let timeoutId;
+
+    const closeAllModes = () => {
+      // 여기서 상태가 false로 바뀌면 위쪽의 '통합 포커스 복구 로직' useEffect가 감지하고 포커스를 줍니다.
+      setIsCameraOpen(false);
+      setIsEmoticonPickerOpen(false);
+      setSelectedImageUrl(null);
+      setIsProfileModalOpen(false);
+    };
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(closeAllModes, INACTIVITY_TIMEOUT);
+    };
+
+    resetTimer();
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'click', 'scroll'];
+    activityEvents.forEach((event) => window.addEventListener(event, resetTimer));
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      clearTimeout(timeoutId);
+      activityEvents.forEach((event) => window.removeEventListener(event, resetTimer));
+    };
+  }, [isCameraOpen, isEmoticonPickerOpen, selectedImageUrl, isProfileModalOpen]);
+
+
+  useEffect(() => {
+    const CHAT_ROOM_STATE = { page: 'chatRoom' };
+    const currentUrl = location.href;
+
+    const preventBackNavigation = () => {
+      history.pushState(CHAT_ROOM_STATE, '', currentUrl);
+    };
+
+    history.replaceState(CHAT_ROOM_STATE, '', currentUrl);
+
+    window.addEventListener('popstate', preventBackNavigation);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        preventBackNavigation();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('popstate', preventBackNavigation);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -183,11 +279,19 @@ const ChatRoom = () => {
     if (type === 'text') {
       setNewMessage('');
     }
+
+    if (isExternalKeyboardMode) {
+        setTimeout(() => inputRef.current?.focus(), 10);
+    }
   };
   
   const handleTextSubmit = (e) => {
     e.preventDefault();
     handleSendMessage(newMessage, null, 'text');
+    
+    if (isExternalKeyboardMode) {
+        setTimeout(() => inputRef.current?.focus(), 10);
+    }
   };
 
   const handleEmoticonSend = (emoticon) => {
@@ -263,6 +367,19 @@ const ChatRoom = () => {
                 <User className="mr-2 h-4 w-4" />
                 <span>프로필 수정</span>
               </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuCheckboxItem 
+                checked={isExternalKeyboardMode}
+                onCheckedChange={toggleExternalKeyboardMode}
+              >
+                <Keyboard className="mr-2 h-4 w-4" />
+                <span>외부 키보드 모드</span>
+              </DropdownMenuCheckboxItem>
+              
+              <DropdownMenuSeparator />
+
               <DropdownMenuItem onClick={() => signOut(auth)}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>로그아웃</span>
@@ -345,6 +462,7 @@ const ChatRoom = () => {
               />
             )}
             <Textarea 
+              ref={inputRef}
               value={newMessage} 
               onChange={(e) => setNewMessage(e.target.value)} 
               placeholder="메시지를 입력하세요..." 
