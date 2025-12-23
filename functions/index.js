@@ -137,11 +137,7 @@ async function sendBotReply(message, messageId) {
         }
 
         console.log("Calling external bot API...");
-        let prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ';
-        prompt += '가격이나 제품에 대한 질문에는 "가격 안내는 개발중이다! 냐사장을 불러주겠따!"라고 답해줘. ';
-        prompt += '제품을 누가 만들었냐고 물어보면 "냐사장이 직접 만들었다!"라고 답해. ';
-        prompt += '가게가 귀엽다고 칭찬하면 감사의 인사를 전해. ';
-        prompt += '질문 : ' + message.text;
+        let prompt = message.text;
         const response = await fetch('https://musclecat.co.kr/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -162,17 +158,51 @@ async function sendBotReply(message, messageId) {
                 console.log("Bot response contains 'fail'. No message will be sent.");
                 return;
             }
-            
-            await db.collection("messages").add({
-                text: botResponseText.trim(),
-                type: 'text',
-                sender: '근육고양이봇',
-                uid: 'bot-01',
-                authUid: 'bot-01',
-                // 💡 [수정] FieldValue.serverTimestamp() 사용
-                timestamp: FieldValue.serverTimestamp()
-            });
+
+            // ==========================================
+            // [수정] 마크다운 이미지 감지 및 분리 로직
+            // ==========================================
+            let replyText = botResponseText.trim();
+            let imageUrl = null;
+
+            // 정규식: ![...](URL) 패턴 찾기
+            const imageRegex = /!\[.*?\]\((.*?)\)/;
+            const match = replyText.match(imageRegex);
+
+            if (match) {
+                imageUrl = match[1]; // (URL) 부분 추출
+                replyText = replyText.replace(match[0], "").trim(); // 원본 텍스트에서 마크다운 제거
+            }
+
+            // 1. 텍스트 메시지 전송 (텍스트가 남아있을 경우)
+            if (replyText) {
+                await db.collection("messages").add({
+                    text: replyText,
+                    type: 'text',
+                    sender: '근육고양이봇',
+                    uid: 'bot-01',
+                    authUid: 'bot-01',
+                    timestamp: FieldValue.serverTimestamp()
+                });
+            }
+
+            // 2. 이미지 메시지 전송 (이미지가 발견된 경우)
+            if (imageUrl) {
+                // 약간의 딜레이를 주어 텍스트 뒤에 이미지가 오도록 보장 (선택 사항)
+                await new Promise(r => setTimeout(r, 100)); 
+                
+                await db.collection("messages").add({
+                    text: imageUrl, // 이미지 URL을 text 필드에 담음 (UI에서 type:'image'일 때 이를 src로 사용)
+                    type: 'image',  // 타입을 image로 설정
+                    sender: '근육고양이봇',
+                    uid: 'bot-01',
+                    authUid: 'bot-01',
+                    timestamp: FieldValue.serverTimestamp()
+                });
+            }
+
             console.log("Successfully sent bot reply.");
+            
         } else {
             console.log("Bot API returned an empty response text. No message will be sent.");
         }

@@ -48,6 +48,9 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   const userProfile = users.find(u => u.id === msg.authUid);
   const isOwner = msg.uid === 'owner';
 
+  // 1. 메시지 텍스트가 https:// 로 시작하는지 확인 (이미지 URL로 간주)
+  const isUrlImage = msg.text && msg.text.startsWith('https://');
+
   let senderName, avatarSrc;
 
   if (msg.uid === 'bot-01') {
@@ -189,7 +192,10 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
     );
   };
 
-  if (isEmoticon) {
+  // 2. 이모티콘이거나 URL 이미지인 경우 처리
+  if (isEmoticon || isUrlImage) {
+    const displayImageUrl = isEmoticon ? msg.imageUrl : msg.text;
+
     return (
       <div id={messageContainerId} className={cn('flex items-start gap-2 group', isMyMessage ? 'justify-end' : 'justify-start', isHighlighted && 'animate-shake')}>
         {!isMyMessage && showAvatar && (
@@ -204,14 +210,31 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
           {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
           <div className={cn("flex items-end gap-1", isMyMessage ? "flex-row-reverse" : "flex-row")}>
             <MessageWrapper isImage={true}>
-                <NextImage
-                    src={msg.imageUrl}
-                    alt="emoticon"
-                    fill
-                    sizes="150px"
-                    className="object-contain"
-                    unoptimized
-                />
+                {/* URL 이미지인 경우 NextImage의 unoptimized 속성 사용 권장 (외부 URL)
+                   또는 일반 img 태그 사용 고려 (NextImage 설정 필요 시)
+                */}
+                {isUrlImage ? (
+                    <img 
+                        src={displayImageUrl}
+                        alt="attached image"
+                        className="object-contain w-full h-full rounded-lg bg-gray-100" // 스타일 조정
+                        onClick={(e) => {
+                            if (isMessageModalActive) {
+                                e.stopPropagation();
+                                onImageClick(displayImageUrl);
+                            }
+                        }}
+                    />
+                ) : (
+                    <NextImage
+                        src={displayImageUrl}
+                        alt="emoticon"
+                        fill
+                        sizes="150px"
+                        className="object-contain"
+                        unoptimized
+                    />
+                )}
             </MessageWrapper>
             <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
           </div>
