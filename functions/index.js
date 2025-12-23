@@ -123,13 +123,13 @@ async function sendBotReply(message, messageId) {
         const recentMessagesQuery = messagesRef.orderBy("timestamp", "desc").limit(2);
         const recentMessagesSnapshot = await recentMessagesQuery.get();
 
-        if (!recentMessagesSnapshot.empty) {
-            const previousMessages = recentMessagesSnapshot.docs.filter(doc => doc.id !== messageId);
-            if (previousMessages.length > 0 && previousMessages[0].data().uid === 'bot-01') {
-                console.log("The previous message was from the bot. Skipping bot reply.");
-                return;
-            }
-        }
+        // if (!recentMessagesSnapshot.empty) {
+        //     const previousMessages = recentMessagesSnapshot.docs.filter(doc => doc.id !== messageId);
+        //     if (previousMessages.length > 0 && previousMessages[0].data().uid === 'bot-01') {
+        //         console.log("The previous message was from the bot. Skipping bot reply.");
+        //         return;
+        //     }
+        // }
 
         if (message.type !== 'text' || !message.text) {
             console.log("Message is not a text type or has no content. Skipping bot reply.");
