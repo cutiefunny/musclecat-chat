@@ -217,23 +217,23 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                     <img 
                         src={displayImageUrl}
                         alt="attached image"
-                        className="object-contain w-full h-full rounded-lg bg-gray-100" // 스타일 조정
+                        className="object-contain w-full h-full rounded-lg bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
                         onClick={(e) => {
-                            if (isMessageModalActive) {
-                                e.stopPropagation();
-                                onImageClick(displayImageUrl);
-                            }
+                            e.stopPropagation();
+                            onImageClick(displayImageUrl);
                         }}
                     />
                 ) : (
-                    <NextImage
-                        src={displayImageUrl}
-                        alt="emoticon"
-                        fill
-                        sizes="150px"
-                        className="object-contain"
-                        unoptimized
-                    />
+                    <div>
+                        <NextImage
+                            src={displayImageUrl}
+                            alt="emoticon"
+                            fill
+                            sizes="150px"
+                            className="object-contain"
+                            unoptimized
+                        />
+                    </div>
                 )}
             </MessageWrapper>
             <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
@@ -293,12 +293,10 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                 {msg.imageUrl && (
                   <div 
                     onClick={(e) => { 
-                      if (isMessageModalActive) {
-                        e.stopPropagation(); 
-                        onImageClick(msg.imageUrl); 
-                      }
+                      e.stopPropagation(); 
+                      onImageClick(msg.imageUrl); 
                     }} 
-                    className={cn(isMessageModalActive ? "cursor-pointer" : "")}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
                   >
                     <NextImage
                       src={msg.imageUrl}
