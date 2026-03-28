@@ -20,7 +20,7 @@ exports.handleNewMessage = onDocumentCreated("messages/{messageId}", async (even
         return;
     }
     const newMessage = snapshot.data();
-    
+
     // 고객이 보낸 메시지일 때만 푸시 알림과 봇 응답 로직을 실행합니다.
     if (newMessage.uid === "customer") {
         console.log(`Customer message received. Triggering push notification and bot reply.`);
@@ -50,7 +50,7 @@ async function sendPushNotificationToOwner(message) {
 
         const ownerData = ownerSnapshot.docs[0].data();
         const fcmToken = ownerData.fcmToken;
-        
+
         console.log(`Owner found: ${ownerData.displayName}. FCM Token present: ${!!fcmToken}`);
 
         if (!fcmToken) {
@@ -74,19 +74,19 @@ async function sendPushNotificationToOwner(message) {
                 link: "https://musclecat-chat.vercel.app/"
             },
             android: {
-              priority: "high"
+                priority: "high"
             },
             apns: {
-              headers: {
-                "apns-priority": "10",
-              },
-              payload: {
-                aps: {
-                  sound: "default",
-                  // 💡 [수정] data-only 메시지도 iOS에서 알림을 표시하도록 content-available 추가
-                  "content-available": 1, 
+                headers: {
+                    "apns-priority": "10",
                 },
-              },
+                payload: {
+                    aps: {
+                        sound: "default",
+                        // 💡 [수정] data-only 메시지도 iOS에서 알림을 표시하도록 content-available 추가
+                        "content-available": 1,
+                    },
+                },
             },
         };
 
@@ -94,7 +94,7 @@ async function sendPushNotificationToOwner(message) {
         console.log("Payload:", JSON.stringify(messagePayload, null, 2));
 
         const response = await getMessaging().send(messagePayload);
-        
+
         console.log("Successfully sent message:", response);
 
     } catch (error) {
@@ -110,15 +110,60 @@ async function sendPushNotificationToOwner(message) {
 async function sendBotReply(message, messageId) {
     const db = getFirestore();
     const botStatusRef = db.doc("settings/bot");
-    
+
     try {
+        // 1호점, 2호점 또는 3호점에서 "얼마"라는 단어가 포함된 메시지 감지 (봇 상태와 무관하게 항상 처리)
+        if ((message.sender === '1호점' || message.sender === '2호점' || message.sender === '3호점') && message.text && message.text.includes('얼마')) {
+            console.log("Product inquiry detected. Calling product info API...");
+            try {
+                const productResponse = await fetch('https://musclecat.co.kr/productinfo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: message.text }),
+                });
+
+                if (productResponse.ok) {
+                    const productData = await productResponse.json();
+                    console.log("Product info API response received:", productData);
+
+                    if (productData && (productData.text || productData.image)) {
+                        // 텍스트 또는 이미지 메시지 저장
+                        const messageToSave = {
+                            sender: '근육고양이봇',
+                            uid: 'bot-01',
+                            authUid: 'bot-01',
+                            timestamp: FieldValue.serverTimestamp()
+                        };
+
+                        if (productData.text) {
+                            messageToSave.text = productData.text;
+                            messageToSave.type = 'text';
+                        }
+
+                        if (productData.image) {
+                            messageToSave.imageUrl = productData.image;
+                            messageToSave.type = 'photo';
+                        }
+
+                        await db.collection("messages").add(messageToSave);
+                        console.log("Product info message sent successfully.");
+                    }
+                } else {
+                    console.error(`Product info API request failed with status ${productResponse.status}`);
+                }
+            } catch (error) {
+                console.error("Error calling product info API:", error);
+            }
+            return; // 제품 정보 응답 후 일반 봇 로직은 실행하지 않음
+        }
+
         const docSnap = await botStatusRef.get();
-        
+
         if (!docSnap.exists || docSnap.data().isActive === false) {
             console.log("Bot is disabled. No reply will be sent.");
             return;
         }
-        
+
         const messagesRef = db.collection("messages");
         const recentMessagesQuery = messagesRef.orderBy("timestamp", "desc").limit(2);
         const recentMessagesSnapshot = await recentMessagesQuery.get();
@@ -149,10 +194,10 @@ async function sendBotReply(message, messageId) {
             console.error(`Bot API request failed with status ${response.status}: ${errorBody}`);
             throw new Error(`Bot API request failed with status ${response.status}`);
         }
-        
+
         const botResponseText = await response.text();
         console.log("Bot API response received:", botResponseText);
-        
+
         if (botResponseText && botResponseText.trim()) {
             if (botResponseText.trim().toLowerCase().includes('fail')) {
                 console.log("Bot response contains 'fail'. No message will be sent.");
@@ -188,19 +233,18 @@ async function sendBotReply(message, messageId) {
 
             // 2. 이미지 메시지 전송 (이미지가 발견된 경우)
             if (imageUrl) {
-                // 약간의 딜레이를 주어 텍스트 뒤에 이미지가 오도록 보장 (선택 사항)
+                // 약간의 딜레이를 주어 텍스트 뒤에 보장
                 await new Promise(r => setTimeout(r, 100)); 
                 
                 await db.collection("messages").add({
-                    text: imageUrl, // 이미지 URL을 text 필드에 담음 (UI에서 type:'image'일 때 이를 src로 사용)
-                    type: 'image',  // 타입을 image로 설정
+                    text: imageUrl, 
+                    type: 'image',  
                     sender: '근육고양이봇',
                     uid: 'bot-01',
                     authUid: 'bot-01',
                     timestamp: FieldValue.serverTimestamp()
                 });
             }
-
             console.log("Successfully sent bot reply.");
             
         } else {

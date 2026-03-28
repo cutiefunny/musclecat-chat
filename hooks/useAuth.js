@@ -84,5 +84,20 @@ export const useAuth = () => {
         }
     };
 
-    return { authUser, loading, handleLogin, handleBranchLogin, handleBranch2Login }; // 💡 handleBranch2Login 반환
+    // 💡 3호점 로그인 핸들러 추가
+    const handleBranch3Login = async () => {
+        try {
+            const userCredential = await signInAnonymously(auth);
+            const user = userCredential.user;
+            await updateUserProfile(user.uid, {
+                displayName: '3호점',
+                photoURL: '/images/icon.png', 
+            });
+        } catch (error) {
+            console.error("Anonymous login (Branch 3) failed:", error);
+            alert("3호점 로그인에 실패했습니다.");
+        }
+    };
+
+    return { authUser, loading, handleLogin, handleBranchLogin, handleBranch2Login, handleBranch3Login };
 };

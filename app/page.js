@@ -10,7 +10,7 @@ import Image from "next/image";
 import { signOut, auth } from "@/lib/firebase/clientApp";
 
 
-const LoginScreen = ({ handleLogin, handleBranchLogin, handleBranch2Login }) => ( // 💡 handleBranch2Login prop 추가
+const LoginScreen = ({ handleLogin, handleBranchLogin, handleBranch2Login, handleBranch3Login }) => ( 
   <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
     <div className="text-center p-10 bg-white rounded-2xl shadow-xl max-w-sm w-full">
       <Image 
@@ -47,6 +47,14 @@ const LoginScreen = ({ handleLogin, handleBranchLogin, handleBranch2Login }) => 
           >
             2호점으로 로그인
           </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full h-12 text-base"
+            onClick={handleBranch3Login}
+          >
+            3호점으로 로그인
+          </Button>
       </div>
     </div>
   </main>
@@ -54,7 +62,7 @@ const LoginScreen = ({ handleLogin, handleBranchLogin, handleBranch2Login }) => 
 
 export default function Home() {
   const { chatUser } = useChatStore();
-  const { authUser, loading, handleLogin, handleBranchLogin, handleBranch2Login } = useAuth(); // 💡 handleBranch2Login 가져오기
+  const { authUser, loading, handleLogin, handleBranchLogin, handleBranch2Login, handleBranch3Login } = useAuth(); 
 
   if (loading) {
     return <main className="flex items-center justify-center min-h-screen"><p>인증 정보를 확인하는 중...</p></main>;
@@ -64,7 +72,8 @@ export default function Home() {
     return <LoginScreen 
               handleLogin={handleLogin} 
               handleBranchLogin={handleBranchLogin} 
-              handleBranch2Login={handleBranch2Login} // 💡 prop으로 전달
+              handleBranch2Login={handleBranch2Login} 
+              handleBranch3Login={handleBranch3Login}
            />;
   }
   
