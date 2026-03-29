@@ -418,7 +418,7 @@ const ChatRoom = () => {
                 {dateSeparator}
                 <MessageItem
                   msg={msg}
-                  isMyMessage={msg.authUid === authUser.uid}
+                  isMyMessage={msg.authUid === authUser.uid || (['1호점', '2호점', '3호점'].includes(msg.sender) && msg.sender === chatUser.name)}
                   showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01' || (messages[index-1]?.timestamp && msg.timestamp?.toDate().toLocaleDateString() !== messages[index-1].timestamp.toDate().toLocaleDateString())}
                   onDelete={handleDelete}
                   onImageClick={setSelectedImageUrl}
