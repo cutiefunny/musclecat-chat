@@ -112,9 +112,9 @@ async function sendBotReply(message, messageId) {
     const botStatusRef = db.doc("settings/bot");
 
     try {
-        // 1호점, 2호점 또는 3호점에서 "얼마"라는 단어가 포함된 메시지 감지 (봇 상태와 무관하게 항상 처리)
-        if ((message.sender === '1호점' || message.sender === '2호점' || message.sender === '3호점') && message.text && message.text.includes('얼마')) {
-            console.log("Product inquiry detected. Calling product info API...");
+        // 메시지에 "얼마"라는 단어가 포함된 경우 제품 정보 API 호출 (봇 상태와 무관하게 항상 처리)
+        if (message.text && message.text.includes('얼마')) {
+            console.log("Product inquiry detected ('얼마'). Calling product info API...");
             try {
                 const productResponse = await fetch('https://musclecat.co.kr/productinfo', {
                     method: 'POST',
@@ -126,7 +126,7 @@ async function sendBotReply(message, messageId) {
                     const productData = await productResponse.json();
                     console.log("Product info API response received:", productData);
 
-                    if (productData && (productData.text || productData.image)) {
+                    if (productData) {
                         // 텍스트 또는 이미지 메시지 저장
                         const messageToSave = {
                             sender: '근육고양이봇',
@@ -135,18 +135,27 @@ async function sendBotReply(message, messageId) {
                             timestamp: FieldValue.serverTimestamp()
                         };
 
-                        if (productData.text) {
+                        if (productData.products && Array.isArray(productData.products)) {
+                            messageToSave.products = productData.products; // 원본 배열 저장
+                            messageToSave.text = productData.text || ""; // 기본 문구 제거
+                            messageToSave.type = 'text';
+                        } else if (productData.text) {
                             messageToSave.text = productData.text;
                             messageToSave.type = 'text';
                         }
 
                         if (productData.image) {
                             messageToSave.imageUrl = productData.image;
-                            messageToSave.type = 'photo';
+                            // 💡 텍스트나 제품 목록이 있는 경우 'photo' 대신 'text' 타입을 유지하여 말풍선 내에 렌더링되게 함
+                            if (!messageToSave.text && !messageToSave.products) {
+                                messageToSave.type = 'photo';
+                            }
                         }
 
-                        await db.collection("messages").add(messageToSave);
-                        console.log("Product info message sent successfully.");
+                        if (messageToSave.text || messageToSave.imageUrl || messageToSave.products) {
+                            await db.collection("messages").add(messageToSave);
+                            console.log("Product info message sent successfully.");
+                        }
                     }
                 } else {
                     console.error(`Product info API request failed with status ${productResponse.status}`);

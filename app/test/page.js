@@ -8,19 +8,20 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Camera, 
-  Smile, 
-  Send, 
-  User, 
-  Bot, 
-  Settings, 
-  Trash2, 
+import {
+  Camera,
+  Smile,
+  Send,
+  User,
+  Bot,
+  Settings,
+  Trash2,
   RotateCcw,
   MessageSquare,
   ShieldCheck,
   Store,
-  Monitor
+  Monitor,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +69,9 @@ export default function TestSimulationPage() {
   const [isBotActive, setIsBotActive] = useState(true);
   const [showConfig, setShowConfig] = useState(true);
   const [backendEnv, setBackendEnv] = useState("local");
-  
+  const [apiLog, setApiLog] = useState(null); // 💡 API 호출 로그 상태 추가
+  const [selectedImageUrl, setSelectedImageUrl] = useState(null); // 💡 이미지 모달 상태 추가
+
   const scrollViewportRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -110,18 +113,30 @@ export default function TestSimulationPage() {
   const simulateBotResponse = async (userText, user) => {
     const baseUrl = backendEnv === 'local' ? 'http://localhost:8000' : 'https://musclecat.co.kr';
 
-    // 1호점, 2호점, 3호점에서 "얼마"라는 단어가 포함된 메시지 감지
-    if ((user.uid === 'branch1' || user.uid === 'branch2' || user.uid === 'branch3') && userText.includes('얼마')) {
+    // 메시지에 "얼마"라는 단어가 포함된 경우 제품 정보 API 호출
+    if (userText.includes('얼마')) {
+      const apiUrl = `${baseUrl}/productinfo`;
+      const requestBody = { prompt: userText };
+
       try {
-        const productResponse = await fetch(`${baseUrl}/productinfo`, {
+        const productResponse = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: userText }),
+          body: JSON.stringify(requestBody),
         });
 
         if (productResponse.ok) {
           const productData = await productResponse.json();
-          if (productData && (productData.text || productData.image)) {
+          setApiLog({
+            url: apiUrl,
+            method: 'POST',
+            request: requestBody,
+            response: productData,
+            status: productResponse.status,
+            timestamp: new Date().toLocaleTimeString()
+          });
+
+          if (productData) {
             const botMsg = {
               id: (Date.now() + 1).toString(),
               sender: '근육고양이봇',
@@ -129,21 +144,30 @@ export default function TestSimulationPage() {
               authUid: 'bot-01',
               timestamp: new Date()
             };
-            if (productData.text) {
+
+            if (productData.products && Array.isArray(productData.products)) {
+              botMsg.products = productData.products;
+              botMsg.text = productData.text || "";
+              botMsg.type = 'text';
+            } else if (productData.text) {
               botMsg.text = productData.text;
               botMsg.type = 'text';
             }
+
             if (productData.image) {
               botMsg.imageUrl = productData.image;
               botMsg.type = 'photo';
             }
-            setMessages(prev => [...prev, botMsg]);
+
+            if (botMsg.text || botMsg.imageUrl || botMsg.products) {
+              setMessages(prev => [...prev, botMsg]);
+            }
           }
         }
       } catch (error) {
         console.error("Error calling product info API:", error);
       }
-      return; 
+      return;
     }
 
     if (!isBotActive) return;
@@ -151,14 +175,26 @@ export default function TestSimulationPage() {
     try {
       let prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ';
       prompt += '질문 : ' + userText;
-      const response = await fetch(`${baseUrl}/generate`, {
+      const apiUrl = `${baseUrl}/generate`;
+      const requestBody = { prompt };
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
         const botResponseText = await response.text();
+        setApiLog({
+          url: apiUrl,
+          method: 'POST',
+          request: requestBody,
+          response: botResponseText,
+          status: response.status,
+          timestamp: new Date().toLocaleTimeString()
+        });
+
         if (botResponseText && botResponseText.trim() && !botResponseText.trim().toLowerCase().includes('fail')) {
           const botMsg = {
             id: (Date.now() + 1).toString(),
@@ -203,8 +239,8 @@ export default function TestSimulationPage() {
           {/* Header (Same as real UI) */}
           <header className="p-4 border-b bg-white flex items-center justify-between shadow-sm z-10">
             <div className="flex items-center gap-2">
-               <h1 className="text-lg font-bold text-gray-800">근육고양이 채팅방</h1>
-               <Badge variant="outline" className="text-[10px] py-0 px-1 border-blue-200 text-blue-500">TEST</Badge>
+              <h1 className="text-lg font-bold text-gray-800">근육고양이 채팅방</h1>
+              <Badge variant="outline" className="text-[10px] py-0 px-1 border-blue-200 text-blue-500">TEST</Badge>
             </div>
             <div className="flex items-center gap-4">
               {activeUser.uid === 'owner' && (
@@ -254,14 +290,49 @@ export default function TestSimulationPage() {
                           isMyMessage ? 'bg-[#ffe812] text-gray-900 rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm'
                         )}>
                           {msg.imageUrl && (
-                             <img src={msg.imageUrl} alt="attached" className="max-w-[200px] mb-1 rounded border border-gray-100 object-cover block" />
+                            <img src={msg.imageUrl} alt="attached" className="max-w-[200px] mb-1 rounded border border-gray-100 object-cover block" />
                           )}
-                          {msg.text && <div className="leading-snug">{renderMessageText(msg.text)}</div>}
+                          {msg.text && <div className={cn("leading-snug", msg.products && "mb-3 font-semibold")}>{renderMessageText(msg.text)}</div>}
+
+                          {msg.products && Array.isArray(msg.products) && (
+                            <div className="mt-2 overflow-x-auto rounded-lg border border-gray-100 bg-white shadow-sm overflow-hidden">
+                              <table className="w-full text-xs text-left border-collapse">
+                                <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-100">
+                                  <tr>
+                                    <th className="px-2 py-1.5 whitespace-nowrap">품명</th>
+                                    <th className="px-2 py-1.5 whitespace-nowrap">가격</th>
+                                    <th className="px-2 py-1.5 whitespace-nowrap text-center">바코드</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {msg.products.map((p, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                      <td className="px-2 py-2 font-medium text-gray-800">{p.name}</td>
+                                      <td className="px-2 py-2 text-blue-600 font-bold">{p.price}</td>
+                                      <td className="px-2 py-2 text-center text-zinc-900">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${p.barcode}`;
+                                            setSelectedImageUrl(qrCodeUrl); // 이미지 모달로 QR코드 표시
+                                          }}
+                                          className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border border-zinc-200 font-bold transition-colors"
+                                        >
+                                          바코드 보기
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
                         </Card>
                         <span className="text-[10px] text-gray-500 mb-1">{formatTime(msg.timestamp)}</span>
                       </div>
                     </div>
-                    
+
                     {isMyMessage && showAvatar && (
                       <Avatar className="mt-1 flex-shrink-0 size-8">
                         <AvatarImage src={activeUser.photoURL} />
@@ -282,25 +353,25 @@ export default function TestSimulationPage() {
                 <Camera className="size-5 text-gray-600" />
               </Button>
               <div className="relative flex-1">
-                <Textarea 
+                <Textarea
                   ref={inputRef}
-                  value={newMessage} 
-                  onChange={(e) => setNewMessage(e.target.value)} 
-                  placeholder="메시지를 입력하세요..." 
-                  className="pr-12 resize-none rounded-xl border-gray-300 focus:ring-yellow-400 bg-white min-h-[40px] max-h-[100px]" 
-                  onKeyDown={(e) => { 
-                    if (e.key === 'Enter' && !e.shiftKey) { 
-                      e.preventDefault(); 
-                      handleSendMessage(newMessage); 
-                    } 
-                  }} 
-                  rows={1} 
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="메시지를 입력하세요..."
+                  className="pr-12 resize-none rounded-xl border-gray-300 focus:ring-yellow-400 bg-white min-h-[40px] max-h-[100px]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage(newMessage);
+                    }
+                  }}
+                  rows={1}
                 />
                 <Button variant="ghost" size="icon" className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full size-8">
                   <Smile className="size-5 text-gray-500" />
                 </Button>
               </div>
-              <Button 
+              <Button
                 onClick={() => handleSendMessage(newMessage)}
                 className="rounded-xl px-4 py-2 bg-[#ffe812] text-gray-900 hover:bg-[#fdd800] border-none"
                 disabled={!newMessage.trim()}
@@ -314,107 +385,160 @@ export default function TestSimulationPage() {
         {/* Developer / Control Sidebar */}
         {showConfig && (
           <aside className="w-80 border-l bg-zinc-900 text-zinc-100 p-6 flex flex-col gap-6 z-20 shadow-2xl">
-             <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold flex items-center gap-2 text-yellow-500">
-                    <Settings size={16} /> SIMULATION PANEL
-                </h2>
-                <Button variant="ghost" size="icon" className="size-6 text-zinc-500" onClick={() => setShowConfig(false)}>
-                    <Trash2 size={14} />
-                </Button>
-             </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold flex items-center gap-2 text-yellow-500">
+                <Settings size={16} /> SIMULATION PANEL
+              </h2>
+              <Button variant="ghost" size="icon" className="size-6 text-zinc-500" onClick={() => setShowConfig(false)}>
+                <Trash2 size={14} />
+              </Button>
+            </div>
 
-             <div className="space-y-4">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Switch User Identity</label>
-                <div className="grid grid-cols-1 gap-2">
-                  {Object.values(MOCK_USERS).map(user => (
-                    <Button 
-                      key={user.uid}
-                      variant="outline" 
-                      className={cn(
-                        "justify-start gap-3 h-12 border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800 text-left px-3",
-                        activeUser.uid === user.uid && "border-yellow-500 ring-1 ring-yellow-500 bg-yellow-500/10 text-yellow-500"
-                      )}
-                      onClick={() => setActiveUser(user)}
-                    >
-                      <Avatar className="size-6">
-                        <AvatarImage src={user.photoURL} />
-                        <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold leading-none">{user.displayName}</span>
-                        <span className="text-[10px] text-zinc-500 leading-none mt-1">{user.role === 'owner' ? 'Owner' : 'Client'}</span>
-                      </div>
-                    </Button>
-                  ))}
-                </div>
-             </div>
-
-             <div className="space-y-4">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Backend Target</label>
-                <div className="grid grid-cols-2 gap-2">
-                    <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className={cn("h-8 text-xs border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800", backendEnv === 'local' && "border-blue-500 ring-1 ring-blue-500 bg-blue-500/10 text-blue-500 text-white")}
-                        onClick={() => setBackendEnv('local')}
-                    >
-                        Local
-                    </Button>
-                    <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className={cn("h-8 text-xs border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800", backendEnv === 'server' && "border-blue-500 ring-1 ring-blue-500 bg-blue-500/10 text-blue-500 text-white")}
-                        onClick={() => setBackendEnv('server')}
-                    >
-                        Server
-                    </Button>
-                </div>
-                <div className="text-[9px] text-zinc-500 font-mono bg-zinc-950 p-2 rounded border border-zinc-800">
-                    {backendEnv === 'local' ? 'http://localhost:8000' : 'https://musclecat.co.kr'}
-                </div>
-             </div>
-
-             <div className="space-y-4">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Bot Behavior</label>
-                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Bot size={14} className={isBotActive ? "text-emerald-500" : "text-zinc-600"} />
-                        <span className="text-xs">AI Auto-Reply</span>
+            <div className="space-y-4">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Switch User Identity</label>
+              <div className="grid grid-cols-1 gap-2">
+                {Object.values(MOCK_USERS).map(user => (
+                  <Button
+                    key={user.uid}
+                    variant="outline"
+                    className={cn(
+                      "justify-start gap-3 h-12 border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800 text-left px-3",
+                      activeUser.uid === user.uid && "border-yellow-500 ring-1 ring-yellow-500 bg-yellow-500/10 text-yellow-500"
+                    )}
+                    onClick={() => setActiveUser(user)}
+                  >
+                    <Avatar className="size-6">
+                      <AvatarImage src={user.photoURL} />
+                      <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold leading-none">{user.displayName}</span>
+                      <span className="text-[10px] text-zinc-500 leading-none mt-1">{user.role === 'owner' ? 'Owner' : 'Client'}</span>
                     </div>
-                    <Button 
-                        size="sm" 
-                        variant={isBotActive ? "default" : "secondary"} 
-                        className={cn("h-6 text-[10px] px-2", isBotActive ? "bg-emerald-600" : "")}
-                        onClick={() => setIsBotActive(!isBotActive)}
-                    >
-                        {isBotActive ? 'ACTIVE' : 'DISABLED'}
-                    </Button>
-                </div>
-             </div>
+                  </Button>
+                ))}
+              </div>
+            </div>
 
-             <div className="mt-auto space-y-2">
-                <Button 
-                    variant="outline" 
-                    className="w-full gap-2 border-zinc-800 text-zinc-400 hover:text-white"
-                    onClick={clearMessages}
+            <div className="space-y-4">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Backend Target</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn("h-8 text-xs border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800", backendEnv === 'local' && "border-blue-500 ring-1 ring-blue-500 bg-blue-500/10 text-blue-500 text-white")}
+                  onClick={() => setBackendEnv('local')}
                 >
-                    <RotateCcw size={14} /> Reset Simulation
+                  Local
                 </Button>
-                <p className="text-[9px] text-zinc-600 text-center px-4">
-                    모든 상태는 로컬 메모리에만 유지되며 페이지 새로고침 시 초기화됩니다.
-                </p>
-             </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn("h-8 text-xs border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800", backendEnv === 'server' && "border-blue-500 ring-1 ring-blue-500 bg-blue-500/10 text-blue-500 text-white")}
+                  onClick={() => setBackendEnv('server')}
+                >
+                  Server
+                </Button>
+              </div>
+              <div className="text-[9px] text-zinc-500 font-mono bg-zinc-950 p-2 rounded border border-zinc-800">
+                {backendEnv === 'local' ? 'http://localhost:8000' : 'https://musclecat.co.kr'}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Bot Behavior</label>
+              <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bot size={14} className={isBotActive ? "text-emerald-500" : "text-zinc-600"} />
+                  <span className="text-xs">AI Auto-Reply</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant={isBotActive ? "default" : "secondary"}
+                  className={cn("h-6 text-[10px] px-2", isBotActive ? "bg-emerald-600" : "")}
+                  onClick={() => setIsBotActive(!isBotActive)}
+                >
+                  {isBotActive ? 'ACTIVE' : 'DISABLED'}
+                </Button>
+              </div>
+            </div>
+
+            {/* API Logs */}
+            {apiLog && (
+              <div className="space-y-4 px-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase">API Details</label>
+                  <span className="text-[9px] text-emerald-500 font-mono">{apiLog.timestamp}</span>
+                </div>
+                <div className="bg-zinc-950 rounded-xl border border-zinc-800 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2 overflow-hidden border-b border-zinc-900 pb-2">
+                    <span className="text-[10px] font-bold text-emerald-400 font-mono">POST</span>
+                    <span className="text-[9px] text-zinc-500 font-mono truncate">{apiLog.url}</span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[8px] text-zinc-600 font-bold uppercase">Payload</span>
+                    <pre className="text-[9px] text-zinc-400 font-mono bg-zinc-900/50 p-2 rounded break-all whitespace-pre-wrap">
+                      {JSON.stringify(apiLog.request, null, 2)}
+                    </pre>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[8px] text-zinc-600 font-bold uppercase">Response ({apiLog.status})</span>
+                    <pre className="text-[9px] text-blue-400 font-mono bg-zinc-900/50 p-2 rounded break-all whitespace-pre-wrap max-h-[100px] overflow-y-auto">
+                      {typeof apiLog.response === 'string' ? apiLog.response : JSON.stringify(apiLog.response, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+            <div className="mt-auto space-y-2">
+              <Button
+                variant="outline"
+                className="w-full gap-2 border-zinc-800 text-zinc-400 hover:text-white"
+                onClick={clearMessages}
+              >
+                <RotateCcw size={14} /> Reset Simulation
+              </Button>
+              <p className="text-[9px] text-zinc-600 text-center px-4">
+                모든 상태는 로컬 메모리에만 유지되며 페이지 새로고침 시 초기화됩니다.
+              </p>
+            </div>
           </aside>
         )}
 
         {/* Floating Toggle for Sidebar */}
         {!showConfig && (
-            <Button 
-                className="absolute top-20 right-4 size-10 rounded-full bg-zinc-900 border border-zinc-700 shadow-xl z-30" 
-                onClick={() => setShowConfig(true)}
-            >
-                <Settings size={18} />
-            </Button>
+          <Button
+            className="absolute top-20 right-4 size-10 rounded-full bg-zinc-900 border border-zinc-700 shadow-xl z-30"
+            onClick={() => setShowConfig(true)}
+          >
+            <Settings size={18} />
+          </Button>
+        )}
+
+        {/* 💡 이미지 모달 UI 추가 */}
+        {selectedImageUrl && (
+          <div
+            className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4"
+            onClick={() => setSelectedImageUrl(null)}
+          >
+            <div className="relative max-w-full max-h-full">
+              <img
+                src={selectedImageUrl}
+                alt="Enlarged"
+                className="max-w-full max-h-[80vh] rounded-lg shadow-2xl bg-white p-4"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute -top-12 right-0 text-white hover:bg-white/10"
+                onClick={() => setSelectedImageUrl(null)}
+              >
+                <X className="size-8" />
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>

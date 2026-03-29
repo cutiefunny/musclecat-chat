@@ -310,7 +310,42 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                     />
                   </div>
                 )}
-                <p>{msg.text}</p>
+                {msg.text && <p className={cn(msg.products && "mb-3 font-semibold")}>{msg.text}</p>}
+                
+                {msg.products && Array.isArray(msg.products) && (
+                  <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-200">
+                        <tr>
+                          <th className="px-2 py-1.5 whitespace-nowrap">품명</th>
+                          <th className="px-2 py-1.5 whitespace-nowrap">가격</th>
+                          <th className="px-2 py-1.5 whitespace-nowrap text-center">동작</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {msg.products.map((p, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-2 py-2 font-medium text-gray-800">{p.name}</td>
+                            <td className="px-2 py-2 text-blue-600 font-bold">{p.price}</td>
+                            <td className="px-2 py-2 text-center">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${p.barcode}`;
+                                  onImageClick(qrCodeUrl); // 이미지 모달로 QR코드 표시
+                                }}
+                                className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border border-gray-300 font-bold transition-colors"
+                              >
+                                바코드 보기
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
               </Card>
           </MessageWrapper>
           <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
