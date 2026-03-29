@@ -10,7 +10,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBotStatus } from '@/hooks/useBotStatus';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useUiSettings } from '@/hooks/useUiSettings';
-import { sendMessage, deleteMessage, compressAndUploadImage, markMessagesAsRead } from '@/lib/firebase/firebaseService';
+import { sendMessage, deleteMessage, compressAndUploadImage, markMessagesAsRead, subscribeToNotice } from '@/lib/firebase/firebaseService'; // 💡 subscribeToNotice 추가
 import { signOut, auth } from '@/lib/firebase/clientApp';
 import { formatDateSeparator } from '@/lib/utils';
 
@@ -22,6 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, LogOut, Loader2, Smile, User, X, Keyboard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Megaphone } from 'lucide-react'; // 💡 Megaphone 아이콘 추가
 
 // Other Components
 import CameraCapture from './CameraCapture';
@@ -41,6 +42,9 @@ const ChatRoom = () => {
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
   const [isEmoticonPickerOpen, setIsEmoticonPickerOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  
+  // 💡 공지사항 상태
+  const [notice, setNotice] = useState({ text: "", isVisible: false });
   
   // 외부 키보드 모드 상태 및 입력창 Ref
   const [isExternalKeyboardMode, setIsExternalKeyboardMode] = useState(false);
@@ -62,6 +66,14 @@ const ChatRoom = () => {
   
   usePushNotifications();
   const { isBotActive, handleToggleBot } = useBotStatus();
+
+  // 💡 공지사항 구독
+  useEffect(() => {
+    const unsubscribe = subscribeToNotice((data) => {
+      if (data) setNotice(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
   
@@ -389,6 +401,16 @@ const ChatRoom = () => {
 
         </div>
       </header>
+
+      {/* 💡 [추가] 공지사항 배너 */}
+      {notice.isVisible && notice.text && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2.5 flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top duration-300">
+          <Megaphone className="size-4 text-yellow-600 flex-shrink-0" />
+          <div className="flex-1 text-sm text-yellow-800 font-medium overflow-hidden">
+            <p className="truncate whitespace-pre-wrap">{notice.text}</p>
+          </div>
+        </div>
+      )}
 
       <ScrollArea viewportRef={scrollViewportRef} className="flex-1 min-h-0 p-4">
         {isLoadingMore && (
