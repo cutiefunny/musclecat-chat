@@ -112,9 +112,9 @@ async function sendBotReply(message, messageId) {
     const botStatusRef = db.doc("settings/bot");
 
     try {
-        // 메시지에 "얼마"라는 단어가 포함된 경우 제품 정보 API 호출 (봇 상태와 무관하게 항상 처리)
-        if (message.text && message.text.includes('얼마')) {
-            console.log("Product inquiry detected ('얼마'). Calling product info API...");
+        // 메시지에 "얼마" 또는 "가격"이라는 단어가 포함된 경우 제품 정보 API 호출 (봇 상태와 무관하게 항상 처리)
+        if (message.text && (message.text.includes('얼마') || message.text.includes('가격'))) {
+            console.log("Product inquiry detected ('얼마' or '가격'). Calling product info API...");
             try {
                 const productResponse = await fetch('https://musclecat.co.kr/productinfo', {
                     method: 'POST',

@@ -113,8 +113,8 @@ export default function TestSimulationPage() {
   const simulateBotResponse = async (userText, user) => {
     const baseUrl = backendEnv === 'local' ? 'http://localhost:8000' : 'https://musclecat.co.kr';
 
-    // 메시지에 "얼마"라는 단어가 포함된 경우 제품 정보 API 호출
-    if (userText.includes('얼마')) {
+    // 메시지에 "얼마" 또는 "가격"이라는 단어가 포함된 경우 제품 정보 API 호출
+    if (userText.includes('얼마') || userText.includes('가격')) {
       const apiUrl = `${baseUrl}/productinfo`;
       const requestBody = { prompt: userText };
 
@@ -318,7 +318,7 @@ export default function TestSimulationPage() {
                                           }}
                                           className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border border-zinc-200 font-bold transition-colors"
                                         >
-                                          바코드 보기
+                                          바코드
                                         </button>
                                       </td>
                                     </tr>

@@ -336,7 +336,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                                 }}
                                 className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border border-gray-300 font-bold transition-colors"
                               >
-                                바코드 보기
+                                바코드
                               </button>
                             </td>
                           </tr>
