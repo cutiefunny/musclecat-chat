@@ -275,6 +275,7 @@ const ChatRoom = () => {
       text,
       type,
       sender: chatUser.name,
+      senderEmail: authUser?.email || null,
       uid: chatUser.uid,
       authUid: authUser.uid,
       replyTo: replyingToMessage ? replyingToMessage.id : null,

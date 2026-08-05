@@ -287,7 +287,9 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
                 className={cn(
                   'w-fit p-3 rounded-xl break-words whitespace-pre-wrap text-base relative',
                   isMessageModalActive ? 'cursor-pointer' : '', 
-                  isMyMessage ? 'bg-[#ffe812] text-gray-900 rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm'
+                  userProfile?.email === 'cutiefunny@gmail.com' || msg.senderEmail === 'cutiefunny@gmail.com'
+                    ? 'bg-[#dcf8c6] text-gray-900 rounded-bl-sm border border-emerald-200 shadow-sm'
+                    : isMyMessage ? 'bg-[#ffe812] text-gray-900 rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm'
                 )}
               >
                 {msg.imageUrl && (

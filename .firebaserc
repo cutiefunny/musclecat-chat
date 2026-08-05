@@ -1,6 +1,7 @@
 {
   "projects": {
-    "toon": "musclecat-toon"
+    "default": "musclecat-mart",
+    "toon": "musclecat-mart"
   },
   "targets": {},
   "etags": {}
