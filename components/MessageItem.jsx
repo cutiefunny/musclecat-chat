@@ -58,7 +58,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
     avatarSrc = '/images/nyanya.jpg';
   } else {
     // 💡 최신 프로필이 있으면 그것을 사용하고, 없으면(탈퇴 등) 메시지 당시의 정보를 사용
-    senderName = userProfile?.displayName || msg.sender;
+    senderName = userProfile?.displayName || msg.sender || '익명';
     avatarSrc = userProfile?.photoURL || '/images/icon.png';
   }
   
@@ -67,7 +67,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   const repliedToMessage = msg.replyTo ? messages.find(m => m.id === msg.replyTo) : null;
   // 💡 답장 대상의 프로필도 실시간 정보로 업데이트
   const repliedToUserProfile = repliedToMessage ? users.find(u => u.id === repliedToMessage.authUid) : null;
-  const repliedToSenderName = repliedToUserProfile?.displayName || repliedToMessage?.sender;
+  const repliedToSenderName = repliedToUserProfile?.displayName || repliedToMessage?.sender || '익명';
 
 
   const handleReactionSelect = async (messageId, reaction) => {
@@ -201,7 +201,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
         {!isMyMessage && showAvatar && (
           <Avatar className={cn("mt-1 flex-shrink-0", otherAvatarSize)}>
             <AvatarImage src={avatarSrc} alt={senderName} />
-            <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{senderName?.charAt(0) || '?'}</AvatarFallback>
           </Avatar>
         )}
         {(!isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", otherSpacerWidth)} />}
@@ -244,7 +244,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
         {isMyMessage && showAvatar && (
           <Avatar className={cn("mt-1 flex-shrink-0", myAvatarSize)}>
             <AvatarImage src={avatarSrc} alt={senderName} />
-            <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{senderName?.charAt(0) || '?'}</AvatarFallback>
           </Avatar>
         )}
         {(isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", mySpacerWidth)} />}
@@ -257,7 +257,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
       {!isMyMessage && showAvatar && (
         <Avatar className={cn("mt-1 flex-shrink-0", otherAvatarSize)}>
           <AvatarImage src={avatarSrc} alt={senderName} />
-          <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
+          <AvatarFallback>{senderName?.charAt(0) || '?'}</AvatarFallback>
         </Avatar>
       )}
       {(!isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", otherSpacerWidth)} />}
@@ -358,7 +358,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
       {isMyMessage && showAvatar && (
         <Avatar className={cn("mt-1 flex-shrink-0", myAvatarSize)}>
           <AvatarImage src={avatarSrc} alt={senderName} />
-          <AvatarFallback>{senderName.charAt(0)}</AvatarFallback>
+          <AvatarFallback>{senderName?.charAt(0) || '?'}</AvatarFallback>
         </Avatar>
       )}
       {(isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", mySpacerWidth)} />}

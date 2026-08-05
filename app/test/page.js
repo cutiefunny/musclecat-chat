@@ -254,7 +254,7 @@ export default function TestSimulationPage() {
               </p>
               <Avatar className="size-8">
                 <AvatarImage src={activeUser.photoURL} alt={activeUser.displayName} />
-                <AvatarFallback>{activeUser.displayName.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{activeUser?.displayName?.charAt(0) || '?'}</AvatarFallback>
               </Avatar>
             </div>
           </header>
@@ -273,7 +273,7 @@ export default function TestSimulationPage() {
                     {!isMyMessage && showAvatar && (
                       <Avatar className={cn("mt-1 flex-shrink-0", isBot ? "size-10 border-2 border-yellow-400" : "size-8")}>
                         <AvatarImage src={isBot ? "/images/nyanya.jpg" : msg.photoURL || "/images/icon.png"} />
-                        <AvatarFallback>{msg.sender.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{msg.sender?.charAt(0) || '?'}</AvatarFallback>
                       </Avatar>
                     )}
                     {(!isMyMessage && !showAvatar) && <div className="w-8 flex-shrink-0" />}
@@ -336,7 +336,7 @@ export default function TestSimulationPage() {
                     {isMyMessage && showAvatar && (
                       <Avatar className="mt-1 flex-shrink-0 size-8">
                         <AvatarImage src={activeUser.photoURL} />
-                        <AvatarFallback>{activeUser.displayName.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{activeUser?.displayName?.charAt(0) || '?'}</AvatarFallback>
                       </Avatar>
                     )}
                     {(isMyMessage && !showAvatar) && <div className="w-8 flex-shrink-0" />}
@@ -409,7 +409,7 @@ export default function TestSimulationPage() {
                   >
                     <Avatar className="size-6">
                       <AvatarImage src={user.photoURL} />
-                      <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
+                      <AvatarFallback>{user?.displayName?.charAt(0) || '?'}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
                       <span className="text-xs font-bold leading-none">{user.displayName}</span>

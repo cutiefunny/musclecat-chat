@@ -83,7 +83,7 @@ const ProfileModal = ({ onClose }) => {
             <div className="relative">
               <Avatar className="w-24 h-24 text-4xl">
                 <AvatarImage src={previewUrl} alt={displayName} />
-                <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{displayName?.charAt(0) || '?'}</AvatarFallback>
               </Avatar>
               <input 
                 type="file" 

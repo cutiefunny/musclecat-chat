@@ -24,7 +24,7 @@ const TypingIndicator = ({ users: typingUsers }) => {
         <div className="flex items-center gap-2 p-2">
             <Avatar className="size-8">
                 <AvatarImage src={typingProfiles[0].photoURL} />
-                <AvatarFallback>{typingProfiles[0].displayName?.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{typingProfiles[0].displayName?.charAt(0) || '?'}</AvatarFallback>
             </Avatar>
             <div className="bg-white px-4 py-2 rounded-xl rounded-bl-sm shadow-sm">
                 <div className="flex items-center gap-1">
