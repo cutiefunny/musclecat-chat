@@ -1,7 +1,7 @@
 // components/MessageItem.jsx
 "use client";
 
-import React from 'react';
+import React, { useRef } from 'react';
 import useChatStore from '@/store/chat-store';
 import {
   DropdownMenu,
@@ -47,6 +47,65 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
   // 💡 [핵심 로직] 메시지의 authUid를 이용해 최신 사용자 프로필 찾기
   const userProfile = users.find(u => u.id === msg.authUid);
   const isOwner = msg.uid === 'owner';
+  const isAdmin = authUser?.email === 'cutiefunny@gmail.com' || chatUser?.uid === 'owner';
+
+  const timerRef = useRef(null);
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const isLongPressRef = useRef(false);
+
+  const handleContextMenu = (e) => {
+    if (isAdmin) {
+      e.preventDefault();
+      e.stopPropagation();
+      onReply(msg);
+    }
+  };
+
+  const handleTouchStart = (e) => {
+    if (!isAdmin) return;
+    isLongPressRef.current = false;
+    const touch = e.touches[0];
+    startPosRef.current = { x: touch.clientX, y: touch.clientY };
+
+    timerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(50);
+      }
+      onReply(msg);
+    }, 500);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!timerRef.current) return;
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - startPosRef.current.x);
+    const deltaY = Math.abs(touch.clientY - startPosRef.current.y);
+
+    if (deltaX > 10 || deltaY > 10) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (isLongPressRef.current) {
+      e.preventDefault();
+      isLongPressRef.current = false;
+    }
+  };
+
+  const handleTouchCancel = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    isLongPressRef.current = false;
+  };
 
   // 1. 메시지 텍스트가 https:// 로 시작하는지 확인 (이미지 URL로 간주)
   const isUrlImage = msg.text && msg.text.startsWith('https://');
@@ -147,48 +206,63 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
 
   // 래퍼 컴포넌트: 팝업 OFF 시 클릭 이벤트도 제거
   const MessageWrapper = ({ children, isImage = false }) => {
+    const wrapperContent = (
+      <div
+        onContextMenu={handleContextMenu}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+        className="select-none"
+      >
+        {children}
+      </div>
+    );
+
     if (!isMessageModalActive) {
-        return isImage ? (
-            <div className="relative w-[150px] h-[150px]">
-                {children}
-            </div>
-        ) : children;
+      return isImage ? (
+        <div className="relative w-[150px] h-[150px]">
+          {wrapperContent}
+        </div>
+      ) : wrapperContent;
     }
 
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                {isImage ? (
-                    <div className="relative w-[150px] h-[150px] cursor-pointer">
-                        {children}
-                    </div>
-                ) : (
-                    children
-                )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => onReply(msg)} className="cursor-pointer">
-                    <MessageSquareReply className="mr-2 h-4 w-4" />
-                    답장하기
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                        <Smile className="mr-2 h-4 w-4" />
-                        반응 남기기
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                        <DropdownMenuSubContent>
-                            <ReactionPicker onSelect={handleReactionSelect} messageId={msg.id} authUser={authUser} />
-                        </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                </DropdownMenuSub>
-                {canDelete && (
-                    <DropdownMenuItem onClick={() => onDelete(msg)} className="text-red-500 cursor-pointer">
-                        삭제하기
-                    </DropdownMenuItem>
-                )}
-            </DropdownMenuContent>
-        </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          {isImage ? (
+            <div className="relative w-[150px] h-[150px] cursor-pointer">
+              {wrapperContent}
+            </div>
+          ) : (
+            wrapperContent
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {isAdmin && (
+            <DropdownMenuItem onClick={() => onReply(msg)} className="cursor-pointer">
+              <MessageSquareReply className="mr-2 h-4 w-4" />
+              답장하기
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Smile className="mr-2 h-4 w-4" />
+              반응 남기기
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent>
+                <ReactionPicker onSelect={handleReactionSelect} messageId={msg.id} authUser={authUser} />
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+          {canDelete && (
+            <DropdownMenuItem onClick={() => onDelete(msg)} className="text-red-500 cursor-pointer">
+              삭제하기
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   };
 

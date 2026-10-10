@@ -10,6 +10,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useBotStatus } from '@/hooks/useBotStatus';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useUiSettings } from '@/hooks/useUiSettings';
+import { useWakeLock } from '@/hooks/useWakeLock';
 import { sendMessage, deleteMessage, compressAndUploadImage, markMessagesAsRead, subscribeToNotice } from '@/lib/firebase/firebaseService'; // 💡 subscribeToNotice 추가
 import { signOut, auth } from '@/lib/firebase/clientApp';
 import { formatDateSeparator } from '@/lib/utils';
@@ -65,6 +66,7 @@ const ChatRoom = () => {
   useUiSettings();
   
   usePushNotifications();
+  useWakeLock();
   const { isBotActive, handleToggleBot } = useBotStatus();
 
   // 💡 공지사항 구독
@@ -268,8 +270,19 @@ const ChatRoom = () => {
     };
   }, []);
 
+  const handleSetReplyingToMessage = useCallback((msg) => {
+    const isAdmin = authUser?.email === 'cutiefunny@gmail.com' || chatUser?.uid === 'owner';
+    if (!isAdmin) return;
+    setReplyingToMessage(msg);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  }, [authUser?.email, chatUser?.uid, setReplyingToMessage]);
+
   const handleSendMessage = async (text, imagePayload = null, type = 'text') => {
     if (!text?.trim() && !imagePayload) return;
+
+    const isAdmin = authUser?.email === 'cutiefunny@gmail.com' || chatUser?.uid === 'owner';
 
     const messageData = {
       text,
@@ -278,7 +291,7 @@ const ChatRoom = () => {
       senderEmail: authUser?.email || null,
       uid: chatUser.uid,
       authUid: authUser.uid,
-      replyTo: replyingToMessage ? replyingToMessage.id : null,
+      replyTo: (isAdmin && replyingToMessage) ? replyingToMessage.id : null,
     };
 
     if (imagePayload) {
@@ -445,7 +458,7 @@ const ChatRoom = () => {
                   showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01' || (messages[index-1]?.timestamp && msg.timestamp?.toDate().toLocaleDateString() !== messages[index-1].timestamp.toDate().toLocaleDateString())}
                   onDelete={handleDelete}
                   onImageClick={setSelectedImageUrl}
-                  onReply={setReplyingToMessage}
+                  onReply={handleSetReplyingToMessage}
                   chatUser={chatUser}
                   highlightedMessageId={highlightedMessageId}
                   setHighlightedMessageId={setHighlightedMessageId}
