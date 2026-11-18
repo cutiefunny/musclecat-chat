@@ -34,19 +34,19 @@ import ProfileModal from './ProfileModal';
 
 const ChatRoom = () => {
   const { authUser, chatUser, users, replyingToMessage, setReplyingToMessage, highlightedMessageId, setHighlightedMessageId, unreadCount } = useChatStore();
-  
+
   const { messages, isLoading: isLoadingMore, isInitialLoad, hasMore, loadMore } = useInfiniteScrollMessages();
-  
+
   const [newMessage, setNewMessage] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
   const [isEmoticonPickerOpen, setIsEmoticonPickerOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  
+
   // 💡 공지사항 상태
   const [notice, setNotice] = useState({ text: "", isVisible: false });
-  
+
   // 외부 키보드 모드 상태 및 입력창 Ref
   const [isExternalKeyboardMode, setIsExternalKeyboardMode] = useState(false);
   const inputRef = useRef(null);
@@ -55,7 +55,7 @@ const ChatRoom = () => {
   const scrollTargetRef = useRef(null);
   const emoticonPickerRef = useRef(null);
   const emoticonButtonRef = useRef(null);
-  
+
   const didInitialScroll = useRef(false);
   const lastMessageIdRef = useRef(null);
   const scrollInfoRef = useRef({ previousScrollHeight: 0 });
@@ -64,7 +64,7 @@ const ChatRoom = () => {
   useBot();
   useUnreadMessages();
   useUiSettings();
-  
+
   usePushNotifications();
   useWakeLock();
   const { isBotActive, handleToggleBot } = useBotStatus();
@@ -78,10 +78,10 @@ const ChatRoom = () => {
   }, []);
 
   const currentUserProfile = users.find(u => u.id === authUser?.uid) || authUser;
-  
+
   useEffect(() => {
     if (authUser?.uid) {
-        markMessagesAsRead(authUser?.uid);
+      markMessagesAsRead(authUser?.uid);
     }
   }, [authUser?.uid]);
 
@@ -113,7 +113,7 @@ const ChatRoom = () => {
     const newMode = !isExternalKeyboardMode;
     setIsExternalKeyboardMode(newMode);
     localStorage.setItem('musclecat_external_keyboard_mode', newMode);
-    
+
     if (newMode) {
       setTimeout(() => inputRef.current?.focus(), 100);
       alert("⌨️ 외부 키보드 모드가 켜졌습니다.\n배경을 눌러도 입력창 포커스가 유지됩니다.");
@@ -145,7 +145,7 @@ const ChatRoom = () => {
     if (!isAnyModeOpen) return;
 
     // 💡 개발자님 요청하신 '자동 닫힘' 시간이 여기서 설정됩니다 (현재 1분 = 60000ms)
-    const INACTIVITY_TIMEOUT = 60000; 
+    const INACTIVITY_TIMEOUT = 60000;
     let timeoutId;
 
     const closeAllModes = () => {
@@ -204,7 +204,7 @@ const ChatRoom = () => {
     if (isInitialLoad) {
       return;
     }
-    
+
     if (!didInitialScroll.current && messages.length > 0) {
       viewport.scrollTop = viewport.scrollHeight;
       didInitialScroll.current = true;
@@ -214,16 +214,16 @@ const ChatRoom = () => {
 
     const newLastMessage = messages[messages.length - 1];
     if (newLastMessage?.id !== lastMessageIdRef.current) {
-        if (authUser?.uid) {
-            markMessagesAsRead(authUser.uid);
-        }
+      if (authUser?.uid) {
+        markMessagesAsRead(authUser.uid);
+      }
       if (viewport.scrollHeight - viewport.clientHeight <= viewport.scrollTop + 100) {
         setTimeout(() => {
-            scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          scrollTargetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }, 100);
       }
       lastMessageIdRef.current = newLastMessage?.id;
-    } 
+    }
     else if (scrollInfoRef.current.isLoadingMore) {
       const newScrollHeight = viewport.scrollHeight;
       viewport.scrollTop = newScrollHeight - scrollInfoRef.current.previousScrollHeight;
@@ -298,37 +298,37 @@ const ChatRoom = () => {
       messageData.imageUrl = imagePayload.downloadURL;
       messageData.storagePath = imagePayload.storagePath;
     }
-    
+
     await sendMessage(messageData);
-    
+
     setReplyingToMessage(null);
     if (type === 'text') {
       setNewMessage('');
     }
 
     if (isExternalKeyboardMode) {
-        setTimeout(() => inputRef.current?.focus(), 10);
+      setTimeout(() => inputRef.current?.focus(), 10);
     }
   };
-  
+
   const handleTextSubmit = (e) => {
     e.preventDefault();
     handleSendMessage(newMessage, null, 'text');
-    
+
     if (isExternalKeyboardMode) {
-        setTimeout(() => inputRef.current?.focus(), 10);
+      setTimeout(() => inputRef.current?.focus(), 10);
     }
   };
 
   const handleEmoticonSend = (emoticon) => {
     setIsEmoticonPickerOpen(false);
-    const imagePayload = { 
-      downloadURL: emoticon.url, 
-      storagePath: emoticon.storagePath || null 
+    const imagePayload = {
+      downloadURL: emoticon.url,
+      storagePath: emoticon.storagePath || null
     };
     handleSendMessage(null, imagePayload, 'emoticon');
   };
-  
+
   const handleDelete = async (msgToDelete) => {
     if (confirm("메시지를 삭제하시겠습니까?")) {
       try {
@@ -356,12 +356,12 @@ const ChatRoom = () => {
   if (!chatUser) {
     return <div className="flex items-center justify-center h-full">사용자 정보를 불러오는 중...</div>;
   }
-  
+
   let lastMessageDate = null;
 
   return (
     <div className="flex flex-col h-full w-full bg-[#b2c7dc]">
-       <header className="p-4 border-b bg-white flex items-center justify-between shadow-sm z-10">
+      <header className="p-4 border-b bg-white flex items-center justify-between shadow-sm z-10">
         <h1 className="text-lg font-bold text-gray-800">근육고양이 채팅방</h1>
         <div className="flex items-center gap-4">
           {chatUser.uid === 'owner' && (
@@ -376,34 +376,34 @@ const ChatRoom = () => {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <div className="relative">
-                    <Avatar className="size-8 cursor-pointer">
-                        <AvatarImage src={currentUserProfile?.photoURL} alt={currentUserProfile?.displayName} />
-                        <AvatarFallback>{currentUserProfile?.displayName?.charAt(0) || '?'}</AvatarFallback>
-                    </Avatar>
-                    {unreadCount > 0 && (
-                        <Badge variant="destructive" className="absolute -top-1 -right-2 h-5 w-5 p-0 flex items-center justify-center">
-                            {unreadCount}
-                        </Badge>
-                    )}
-                </div>
+              <div className="relative">
+                <Avatar className="size-8 cursor-pointer">
+                  <AvatarImage src={currentUserProfile?.photoURL} alt={currentUserProfile?.displayName} />
+                  <AvatarFallback>{currentUserProfile?.displayName?.charAt(0) || '?'}</AvatarFallback>
+                </Avatar>
+                {unreadCount > 0 && (
+                  <Badge variant="destructive" className="absolute -top-1 -right-2 h-5 w-5 p-0 flex items-center justify-center">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => setIsProfileModalOpen(true)}>
                 <User className="mr-2 h-4 w-4" />
                 <span>프로필 수정</span>
               </DropdownMenuItem>
-              
+
               <DropdownMenuSeparator />
-              
-              <DropdownMenuCheckboxItem 
+
+              <DropdownMenuCheckboxItem
                 checked={isExternalKeyboardMode}
                 onCheckedChange={toggleExternalKeyboardMode}
               >
                 <Keyboard className="mr-2 h-4 w-4" />
                 <span>외부 키보드 모드</span>
               </DropdownMenuCheckboxItem>
-              
+
               <DropdownMenuSeparator />
 
               <DropdownMenuItem onClick={() => signOut(auth)}>
@@ -426,27 +426,27 @@ const ChatRoom = () => {
         </div>
       )}
 
-      <ScrollArea viewportRef={scrollViewportRef} className="flex-1 min-h-0 p-4">
+      <ScrollArea viewportRef={scrollViewportRef} className="flex-1 min-h-0 w-full p-4 overflow-hidden [&>[data-slot=scroll-area-viewport]]:w-full [&>[data-slot=scroll-area-viewport]>div]:!block [&>[data-slot=scroll-area-viewport]>div]:w-full [&>[data-slot=scroll-area-viewport]>div]:max-w-full">
         {isLoadingMore && (
           <div className="flex justify-center my-4">
             <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
           </div>
         )}
-        <div className="space-y-4">
+        <div className="space-y-4 w-full max-w-full overflow-hidden">
           {messages.map((msg, index) => {
             let dateSeparator = null;
             if (msg.timestamp) {
-                const messageDate = msg.timestamp.toDate().toLocaleDateString();
-                if (messageDate !== lastMessageDate) {
-                    dateSeparator = (
-                        <div className="flex justify-center my-4">
-                            <div className="text-xs text-gray-500 bg-gray-200/80 rounded-full px-3 py-1">
-                                {formatDateSeparator(msg.timestamp)}
-                            </div>
-                        </div>
-                    );
-                    lastMessageDate = messageDate;
-                }
+              const messageDate = msg.timestamp.toDate().toLocaleDateString();
+              if (messageDate !== lastMessageDate) {
+                dateSeparator = (
+                  <div className="flex justify-center my-4">
+                    <div className="text-xs text-gray-500 bg-gray-200/80 rounded-full px-3 py-1">
+                      {formatDateSeparator(msg.timestamp)}
+                    </div>
+                  </div>
+                );
+                lastMessageDate = messageDate;
+              }
             }
 
             return (
@@ -455,7 +455,7 @@ const ChatRoom = () => {
                 <MessageItem
                   msg={msg}
                   isMyMessage={msg.authUid === authUser.uid || (['1호점', '2호점', '3호점'].includes(msg.sender) && msg.sender === chatUser.name)}
-                  showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01' || (messages[index-1]?.timestamp && msg.timestamp?.toDate().toLocaleDateString() !== messages[index-1].timestamp.toDate().toLocaleDateString())}
+                  showAvatar={index === 0 || messages[index - 1].authUid !== msg.authUid || messages[index - 1].uid === 'bot-01' || (messages[index - 1]?.timestamp && msg.timestamp?.toDate().toLocaleDateString() !== messages[index - 1].timestamp.toDate().toLocaleDateString())}
                   onDelete={handleDelete}
                   onImageClick={setSelectedImageUrl}
                   onReply={handleSetReplyingToMessage}
@@ -466,7 +466,7 @@ const ChatRoom = () => {
               </React.Fragment>
             );
           })}
-          
+
           <div ref={scrollTargetRef} />
         </div>
       </ScrollArea>
@@ -488,30 +488,30 @@ const ChatRoom = () => {
           <Button type="button" variant="ghost" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isUploading} className="rounded-full size-10 flex-shrink-0">
             {isUploading ? <Loader2 className="size-5 animate-spin" /> : <Camera className="size-5 text-gray-600" />}
           </Button>
-          
+
           <div className="relative flex-1">
             {isEmoticonPickerOpen && (
-              <EmoticonPicker 
+              <EmoticonPicker
                 ref={emoticonPickerRef}
                 onEmoticonSelect={handleEmoticonSend}
                 onClose={() => setIsEmoticonPickerOpen(false)}
               />
             )}
-            <Textarea 
+            <Textarea
               ref={inputRef}
-              value={newMessage} 
-              onChange={(e) => setNewMessage(e.target.value)} 
-              placeholder="메시지를 입력하세요..." 
-              className="pr-12 resize-none rounded-xl border-gray-300 focus:border-yellow-400 focus:ring-yellow-400 bg-white" 
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit(e); } }} 
-              rows={1} 
-              style={{ maxHeight: '100px', minHeight: '40px' }} 
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="메시지를 입력하세요..."
+              className="pr-12 resize-none rounded-xl border-gray-300 focus:border-yellow-400 focus:ring-yellow-400 bg-white"
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSubmit(e); } }}
+              rows={1}
+              style={{ maxHeight: '100px', minHeight: '40px' }}
             />
-            <Button 
+            <Button
               ref={emoticonButtonRef}
-              type="button" 
-              variant="ghost" 
-              size="icon" 
+              type="button"
+              variant="ghost"
+              size="icon"
               className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full size-8"
               onClick={() => setIsEmoticonPickerOpen(prev => !prev)}
             >

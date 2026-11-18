@@ -40,7 +40,7 @@ const ReactionPicker = ({ onSelect, messageId, authUser }) => {
 const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onReply, chatUser, highlightedMessageId, setHighlightedMessageId }) => {
   // 💡 users: 실시간 사용자 목록 (프로필 변경 시 자동 업데이트됨)
   const { authUser, users, messages, isMessageModalActive } = useChatStore();
-  
+
   const formattedTime = msg.timestamp ? formatKakaoTime(msg.timestamp) : '';
   const isEmoticon = msg.type === 'emoticon';
 
@@ -120,7 +120,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
     senderName = userProfile?.displayName || msg.sender || '익명';
     avatarSrc = userProfile?.photoURL || '/images/icon.png';
   }
-  
+
   const canDelete = isMyMessage || (chatUser?.uid === 'owner' && msg.uid === 'bot-01');
 
   const repliedToMessage = msg.replyTo ? messages.find(m => m.id === msg.replyTo) : null;
@@ -161,7 +161,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
 
   const ReactionsDisplay = ({ reactions }) => {
     if (!reactions || reactions.length === 0) return null;
-  
+
     const reactionSummary = reactions.reduce((acc, reaction) => {
       if (!acc[reaction.emoji]) {
         acc[reaction.emoji] = { users: [], count: 0 };
@@ -172,7 +172,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
       acc[reaction.emoji].count++;
       return acc;
     }, {});
-  
+
     return (
       <div className={cn("flex gap-1 mt-1 z-10", isMyMessage ? "justify-end" : "justify-start")}>
         {Object.entries(reactionSummary).map(([emoji, { users: userList, count }]) => {
@@ -195,7 +195,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
       </div>
     );
   };
-  
+
   const messageContainerId = `message-${msg.id}`;
   const isHighlighted = highlightedMessageId === msg.id;
 
@@ -279,40 +279,40 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
           </Avatar>
         )}
         {(!isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", otherSpacerWidth)} />}
-        
-        <div className={cn("flex flex-col gap-1 flex-1", isMyMessage ? "items-end" : "items-start")}>
+
+        <div className={cn("flex flex-col gap-1 flex-1 min-w-0", isMyMessage ? "items-end" : "items-start")}>
           {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
-          <div className={cn("flex items-end gap-1", isMyMessage ? "flex-row-reverse" : "flex-row")}>
+          <div className={cn("flex items-end gap-1 max-w-[85%] sm:max-w-[70%]", isMyMessage ? "flex-row-reverse" : "flex-row")}>
             <MessageWrapper isImage={true}>
-                {/* URL 이미지인 경우 NextImage의 unoptimized 속성 사용 권장 (외부 URL)
+              {/* URL 이미지인 경우 NextImage의 unoptimized 속성 사용 권장 (외부 URL)
                    또는 일반 img 태그 사용 고려 (NextImage 설정 필요 시)
                 */}
-                {isUrlImage ? (
-                    <img 
-                        src={displayImageUrl}
-                        alt="attached image"
-                        className="object-contain w-full h-full rounded-lg bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onImageClick(displayImageUrl);
-                        }}
-                    />
-                ) : (
-                    <div>
-                        <NextImage
-                            src={displayImageUrl}
-                            alt="emoticon"
-                            fill
-                            sizes="150px"
-                            className="object-contain"
-                            unoptimized
-                        />
-                    </div>
-                )}
+              {isUrlImage ? (
+                <img
+                  src={displayImageUrl}
+                  alt="attached image"
+                  className="object-contain w-full h-full rounded-lg bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onImageClick(displayImageUrl);
+                  }}
+                />
+              ) : (
+                <div>
+                  <NextImage
+                    src={displayImageUrl}
+                    alt="emoticon"
+                    fill
+                    sizes="150px"
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
+              )}
             </MessageWrapper>
             <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
           </div>
-           <ReactionsDisplay reactions={msg.reactions} />
+          <ReactionsDisplay reactions={msg.reactions} />
         </div>
 
         {isMyMessage && showAvatar && (
@@ -336,11 +336,11 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
       )}
       {(!isMyMessage && !showAvatar) && <div className={cn("flex-shrink-0", otherSpacerWidth)} />}
 
-      <div className={cn("flex flex-col gap-1 flex-1", isMyMessage ? "items-end" : "items-start")}>
+      <div className={cn("flex flex-col gap-1 flex-1 min-w-0", isMyMessage ? "items-end" : "items-start")}>
         {!isMyMessage && showAvatar && <span className={cn("text-xs text-gray-600 ml-1", isOwner && "font-bold")}>{senderName}</span>}
-        
+
         {repliedToMessage && (
-          <div onClick={() => handleReplyClick(repliedToMessage.id)} className="text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md max-w-[90%] sm:max-w-[70%] flex items-center gap-1.5 cursor-pointer">
+          <div onClick={() => handleReplyClick(repliedToMessage.id)} className="text-xs text-gray-500 bg-gray-100/80 px-2 py-1 rounded-md max-w-[85%] sm:max-w-[70%] flex items-center gap-1.5 cursor-pointer">
             <CornerDownRight className="size-3.5 flex-shrink-0" />
             <span className="font-semibold">{repliedToSenderName}</span>
             <div className="text-gray-500 truncate flex-1">
@@ -355,80 +355,80 @@ const MessageItem = ({ msg, isMyMessage, showAvatar, onDelete, onImageClick, onR
           </div>
         )}
 
-        <div className={cn("flex items-end gap-1 max-w-[90%] sm:max-w-[70%]", isMyMessage ? "flex-row-reverse" : "flex-row")}>
+        <div className={cn("flex items-end gap-1 max-w-[85%] sm:max-w-[70%]", isMyMessage ? "flex-row-reverse" : "flex-row")}>
           <MessageWrapper>
-              <Card
-                className={cn(
-                  'w-fit p-3 rounded-xl break-words whitespace-pre-wrap text-base relative',
-                  isMessageModalActive ? 'cursor-pointer' : '', 
-                  userProfile?.email === 'cutiefunny@gmail.com' || msg.senderEmail === 'cutiefunny@gmail.com'
-                    ? 'bg-[#dcf8c6] text-gray-900 rounded-bl-sm border border-emerald-200 shadow-sm'
-                    : isMyMessage ? 'bg-[#ffe812] text-gray-900 rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm'
-                )}
-              >
-                {msg.imageUrl && (
-                  <div 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      onImageClick(msg.imageUrl); 
-                    }} 
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <NextImage
-                      src={msg.imageUrl}
-                      alt="채팅 이미지"
-                      width={200}
-                      height={200}
-                      className={cn(
-                        "rounded-lg object-cover max-h-[200px] w-auto",
-                        { "mb-2": msg.text }
-                      )}
-                    />
-                  </div>
-                )}
-                {msg.text && <p className={cn(msg.products && "mb-3 font-semibold")}>{msg.text}</p>}
-                
-                {msg.products && Array.isArray(msg.products) && (
-                  <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                    <table className="w-full text-xs text-left border-collapse">
-                      <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-200">
-                        <tr>
-                          <th className="px-2 py-1.5 whitespace-nowrap">품명</th>
-                          <th className="px-2 py-1.5 whitespace-nowrap">가격</th>
-                          <th className="px-2 py-1.5 whitespace-nowrap text-center">동작</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {msg.products.map((p, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-2 py-2 font-medium text-gray-800">{p.name}</td>
-                            <td className="px-2 py-2 text-blue-600 font-bold">{p.price}</td>
-                            <td className="px-2 py-2 text-center">
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${p.barcode}`;
-                                  onImageClick(qrCodeUrl); // 이미지 모달로 QR코드 표시
-                                }}
-                                className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border border-gray-300 font-bold transition-colors"
-                              >
-                                바코드
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+            <Card
+              className={cn(
+                'w-fit max-w-full p-3 rounded-xl break-words [overflow-wrap:anywhere] whitespace-pre-wrap text-base relative',
+                isMessageModalActive ? 'cursor-pointer' : '',
+                userProfile?.email === 'cutiefunny@gmail.com' || msg.senderEmail === 'cutiefunny@gmail.com'
+                  ? 'bg-[#dcf8c6] text-gray-900 rounded-bl-sm border border-emerald-200 shadow-sm'
+                  : isMyMessage ? 'bg-[#ffe812] text-gray-900 rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm'
+              )}
+            >
+              {msg.imageUrl && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onImageClick(msg.imageUrl);
+                  }}
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  <NextImage
+                    src={msg.imageUrl}
+                    alt="채팅 이미지"
+                    width={200}
+                    height={200}
+                    className={cn(
+                      "rounded-lg object-cover max-h-[200px] w-auto",
+                      { "mb-2": msg.text }
+                    )}
+                  />
+                </div>
+              )}
+              {msg.text && <p className={cn(msg.products && "mb-3 font-semibold")}>{msg.text}</p>}
 
-              </Card>
+              {msg.products && Array.isArray(msg.products) && (
+                <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-200">
+                      <tr>
+                        <th className="px-2 py-1.5 whitespace-nowrap">품명</th>
+                        <th className="px-2 py-1.5 whitespace-nowrap">가격</th>
+                        <th className="px-2 py-1.5 whitespace-nowrap text-center">동작</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {msg.products.map((p, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-2 py-2 font-medium text-gray-800">{p.name}</td>
+                          <td className="px-2 py-2 text-blue-600 font-bold">{p.price}</td>
+                          <td className="px-2 py-2 text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${p.barcode}`;
+                                onImageClick(qrCodeUrl); // 이미지 모달로 QR코드 표시
+                              }}
+                              className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border border-gray-300 font-bold transition-colors"
+                            >
+                              바코드
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+            </Card>
           </MessageWrapper>
           <span className="text-xs text-gray-600 mb-1">{formattedTime}</span>
         </div>
         <ReactionsDisplay reactions={msg.reactions} />
       </div>
-      
+
       {isMyMessage && showAvatar && (
         <Avatar className={cn("mt-1 flex-shrink-0", myAvatarSize)}>
           <AvatarImage src={avatarSrc} alt={senderName} />
