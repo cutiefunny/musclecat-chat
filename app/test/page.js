@@ -111,7 +111,100 @@ export default function TestSimulationPage() {
   };
 
   const simulateBotResponse = async (userText, user) => {
-    const baseUrl = backendEnv === 'local' ? 'http://localhost:8000' : 'https://musclecat.co.kr';
+    const baseUrl = backendEnv === 'local' ? 'http://localhost:8787/api' : 'https://musclecat-hono.musclecat.workers.dev/api';
+
+    // 메시지에 "바코드"가 포함된 경우 /product API 호출
+    if (userText.includes('바코드')) {
+      const apiUrl = `${baseUrl}/product`;
+      const requestBody = { prompt: userText };
+
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setApiLog({
+            url: apiUrl,
+            method: 'POST',
+            request: requestBody,
+            response: data,
+            status: response.status,
+            timestamp: new Date().toLocaleTimeString()
+          });
+
+          const botMsg = {
+            id: (Date.now() + 1).toString(),
+            sender: '근육고양이봇',
+            uid: 'bot-01',
+            authUid: 'bot-01',
+            timestamp: new Date(),
+            text: "",
+            type: 'text'
+          };
+
+          if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+            const parsedProducts = [];
+            data.products.forEach(item => {
+              if (!item || typeof item !== 'object') return;
+              if (item.name) {
+                parsedProducts.push(item);
+                return;
+              }
+              Object.entries(item).forEach(([key, val]) => {
+                if (key === 'id' || key === 'createTime' || key === 'updateTime') return;
+                if (val && typeof val === 'object') {
+                  parsedProducts.push({
+                    name: key,
+                    price: val.price ? (val.price.includes('원') ? val.price : `${val.price}원`) : '',
+                    barcode: val.barcode || '',
+                    image: val.image || null,
+                    category: item.id || ''
+                  });
+                }
+              });
+            });
+
+            if (parsedProducts.length > 0) {
+              botMsg.products = parsedProducts;
+              botMsg.text = ""; // reason 생략하고 목록만 표시
+            } else {
+              botMsg.text = "어떤 제품의 바코드를 찾고 있냥?";
+            }
+          } else {
+            botMsg.text = "어떤 제품의 바코드를 찾고 있냥?";
+          }
+
+          setMessages(prev => [...prev, botMsg]);
+        } else {
+          // 실패 시 기본 멘트
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            sender: '근육고양이봇',
+            uid: 'bot-01',
+            authUid: 'bot-01',
+            timestamp: new Date(),
+            text: "어떤 제품의 바코드를 찾고 있냥?",
+            type: 'text'
+          }]);
+        }
+      } catch (error) {
+        console.error("Error calling /product API in test:", error);
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          sender: '근육고양이봇',
+          uid: 'bot-01',
+          authUid: 'bot-01',
+          timestamp: new Date(),
+          text: "어떤 제품의 바코드를 찾고 있냥?",
+          type: 'text'
+        }]);
+      }
+      return;
+    }
 
     // 메시지에 "얼마" 또는 "가격"이라는 단어가 포함된 경우 제품 정보 API 호출
     if (userText.includes('얼마') || userText.includes('가격')) {
@@ -441,7 +534,7 @@ export default function TestSimulationPage() {
                 </Button>
               </div>
               <div className="text-[9px] text-zinc-500 font-mono bg-zinc-950 p-2 rounded border border-zinc-800">
-                {backendEnv === 'local' ? 'http://localhost:8000' : 'https://musclecat.co.kr'}
+                {backendEnv === 'local' ? 'http://localhost:8787/api' : 'https://musclecat-hono.musclecat.workers.dev/api'}
               </div>
             </div>
 

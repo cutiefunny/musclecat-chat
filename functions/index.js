@@ -13,6 +13,9 @@ setGlobalOptions({ region: "asia-northeast3" });
 
 initializeApp();
 
+// 백엔드 API 엔드포인트 설정
+const API_BASE_URL = process.env.API_BASE_URL || "https://musclecat-hono.musclecat.workers.dev/api";
+
 exports.handleNewMessage = onDocumentCreated("messages/{messageId}", async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -112,11 +115,99 @@ async function sendBotReply(message, messageId) {
     const botStatusRef = db.doc("settings/bot");
 
     try {
-        // 메시지에 "얼마" 또는 "가격"이라는 단어가 포함된 경우 제품 정보 API 호출 (봇 상태와 무관하게 항상 처리)
+        // 1. 메시지에 "바코드"가 포함된 경우 /product API 호출
+        if (message.text && message.text.includes('바코드')) {
+            console.log("Barcode inquiry detected ('바코드'). Calling /product API...");
+            try {
+                const response = await fetch(`${API_BASE_URL}/product`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: message.text }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("/product API response received:", data);
+
+                    const messageToSave = {
+                        sender: '근육고양이봇',
+                        uid: 'bot-01',
+                        authUid: 'bot-01',
+                        timestamp: FieldValue.serverTimestamp(),
+                        type: 'text'
+                    };
+
+                    // products 목록 파싱: [{ id: "키링", "패브릭 키링": {...}, ... }] 또는 [{ name, price, barcode }] 모두 지원
+                    if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+                        const parsedProducts = [];
+
+                        data.products.forEach(item => {
+                            if (!item || typeof item !== 'object') return;
+
+                            // 형태 A: 이미 flat한 객체인 경우 ({ name: "패브릭 키링", price: "3,000", barcode: "..." })
+                            if (item.name) {
+                                parsedProducts.push(item);
+                                return;
+                            }
+
+                            // 형태 B: Firestore 원본 문서 객체인 경우 ({ id: "키링", "패브릭 키링": { price, barcode }, ... })
+                            Object.entries(item).forEach(([key, val]) => {
+                                if (key === 'id' || key === 'createTime' || key === 'updateTime') return;
+                                if (val && typeof val === 'object') {
+                                    parsedProducts.push({
+                                        name: key,
+                                        price: val.price ? (val.price.includes('원') ? val.price : `${val.price}원`) : '',
+                                        barcode: val.barcode || '',
+                                        image: val.image || null,
+                                        category: item.id || ''
+                                    });
+                                }
+                            });
+                        });
+
+                        if (parsedProducts.length > 0) {
+                            messageToSave.products = parsedProducts;
+                            messageToSave.text = ""; // reason 생략하고 목록만 표시
+                        } else {
+                            messageToSave.text = "어떤 제품의 바코드를 찾고 있냥?";
+                        }
+                    } else {
+                        messageToSave.text = "어떤 제품의 바코드를 찾고 있냥?";
+                    }
+
+                    await db.collection("messages").add(messageToSave);
+                    console.log("Barcode product reply sent successfully.");
+                } else {
+                    console.error(`/product API failed with status ${response.status}`);
+                    // API 실패 시 기본 안내 멘트 전송
+                    await db.collection("messages").add({
+                        text: "어떤 제품의 바코드를 찾고 있냥?",
+                        type: 'text',
+                        sender: '근육고양이봇',
+                        uid: 'bot-01',
+                        authUid: 'bot-01',
+                        timestamp: FieldValue.serverTimestamp()
+                    });
+                }
+            } catch (error) {
+                console.error("Error calling /product API:", error);
+                await db.collection("messages").add({
+                    text: "어떤 제품의 바코드를 찾고 있냥?",
+                    type: 'text',
+                    sender: '근육고양이봇',
+                    uid: 'bot-01',
+                    authUid: 'bot-01',
+                    timestamp: FieldValue.serverTimestamp()
+                });
+            }
+            return;
+        }
+
+        // 2. 메시지에 "얼마" 또는 "가격"이라는 단어가 포함된 경우 제품 정보 API 호출 (봇 상태와 무관하게 항상 처리)
         if (message.text && (message.text.includes('얼마') || message.text.includes('가격'))) {
             console.log("Product inquiry detected ('얼마' or '가격'). Calling product info API...");
             try {
-                const productResponse = await fetch('https://musclecat.co.kr/productinfo', {
+                const productResponse = await fetch(`${API_BASE_URL}/productinfo`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: message.text }),
@@ -243,11 +334,11 @@ async function sendBotReply(message, messageId) {
             // 2. 이미지 메시지 전송 (이미지가 발견된 경우)
             if (imageUrl) {
                 // 약간의 딜레이를 주어 텍스트 뒤에 보장
-                await new Promise(r => setTimeout(r, 100)); 
-                
+                await new Promise(r => setTimeout(r, 100));
+
                 await db.collection("messages").add({
-                    text: imageUrl, 
-                    type: 'image',  
+                    text: imageUrl,
+                    type: 'image',
                     sender: '근육고양이봇',
                     uid: 'bot-01',
                     authUid: 'bot-01',
@@ -255,7 +346,7 @@ async function sendBotReply(message, messageId) {
                 });
             }
             console.log("Successfully sent bot reply.");
-            
+
         } else {
             console.log("Bot API returned an empty response text. No message will be sent.");
         }
