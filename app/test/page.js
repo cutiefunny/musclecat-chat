@@ -113,8 +113,8 @@ export default function TestSimulationPage() {
   const simulateBotResponse = async (userText, user) => {
     const baseUrl = backendEnv === 'local' ? 'http://localhost:8787/api' : 'https://musclecat-hono.musclecat.workers.dev/api';
 
-    // 메시지에 "바코드"가 포함된 경우 /product API 호출
-    if (userText.includes('바코드')) {
+    // 메시지에 "바코드", "얼마", "가격"이 포함된 경우 /product API 호출로 일원화
+    if (userText.includes('바코드') || userText.includes('얼마') || userText.includes('가격')) {
       const apiUrl = `${baseUrl}/product`;
       const requestBody = { prompt: userText };
 
@@ -202,63 +202,6 @@ export default function TestSimulationPage() {
           text: "어떤 제품의 바코드를 찾고 있냥?",
           type: 'text'
         }]);
-      }
-      return;
-    }
-
-    // 메시지에 "얼마" 또는 "가격"이라는 단어가 포함된 경우 제품 정보 API 호출
-    if (userText.includes('얼마') || userText.includes('가격')) {
-      const apiUrl = `${baseUrl}/productinfo`;
-      const requestBody = { prompt: userText };
-
-      try {
-        const productResponse = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (productResponse.ok) {
-          const productData = await productResponse.json();
-          setApiLog({
-            url: apiUrl,
-            method: 'POST',
-            request: requestBody,
-            response: productData,
-            status: productResponse.status,
-            timestamp: new Date().toLocaleTimeString()
-          });
-
-          if (productData) {
-            const botMsg = {
-              id: (Date.now() + 1).toString(),
-              sender: '근육고양이봇',
-              uid: 'bot-01',
-              authUid: 'bot-01',
-              timestamp: new Date()
-            };
-
-            if (productData.products && Array.isArray(productData.products)) {
-              botMsg.products = productData.products;
-              botMsg.text = productData.text || "";
-              botMsg.type = 'text';
-            } else if (productData.text) {
-              botMsg.text = productData.text;
-              botMsg.type = 'text';
-            }
-
-            if (productData.image) {
-              botMsg.imageUrl = productData.image;
-              botMsg.type = 'photo';
-            }
-
-            if (botMsg.text || botMsg.imageUrl || botMsg.products) {
-              setMessages(prev => [...prev, botMsg]);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error calling product info API:", error);
       }
       return;
     }

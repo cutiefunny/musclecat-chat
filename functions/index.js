@@ -115,9 +115,9 @@ async function sendBotReply(message, messageId) {
     const botStatusRef = db.doc("settings/bot");
 
     try {
-        // 1. 메시지에 "바코드"가 포함된 경우 /product API 호출
-        if (message.text && message.text.includes('바코드')) {
-            console.log("Barcode inquiry detected ('바코드'). Calling /product API...");
+        // 1. 메시지에 "바코드", "얼마", "가격"이 포함된 경우 /product API 호출로 일원화
+        if (message.text && (message.text.includes('바코드') || message.text.includes('얼마') || message.text.includes('가격'))) {
+            console.log("Product inquiry detected ('바코드', '얼마', or '가격'). Calling /product API...");
             try {
                 const response = await fetch(`${API_BASE_URL}/product`, {
                     method: 'POST',
@@ -201,60 +201,6 @@ async function sendBotReply(message, messageId) {
                 });
             }
             return;
-        }
-
-        // 2. 메시지에 "얼마" 또는 "가격"이라는 단어가 포함된 경우 제품 정보 API 호출 (봇 상태와 무관하게 항상 처리)
-        if (message.text && (message.text.includes('얼마') || message.text.includes('가격'))) {
-            console.log("Product inquiry detected ('얼마' or '가격'). Calling product info API...");
-            try {
-                const productResponse = await fetch(`${API_BASE_URL}/productinfo`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: message.text }),
-                });
-
-                if (productResponse.ok) {
-                    const productData = await productResponse.json();
-                    console.log("Product info API response received:", productData);
-
-                    if (productData) {
-                        // 텍스트 또는 이미지 메시지 저장
-                        const messageToSave = {
-                            sender: '근육고양이봇',
-                            uid: 'bot-01',
-                            authUid: 'bot-01',
-                            timestamp: FieldValue.serverTimestamp()
-                        };
-
-                        if (productData.products && Array.isArray(productData.products)) {
-                            messageToSave.products = productData.products; // 원본 배열 저장
-                            messageToSave.text = productData.text || ""; // 기본 문구 제거
-                            messageToSave.type = 'text';
-                        } else if (productData.text) {
-                            messageToSave.text = productData.text;
-                            messageToSave.type = 'text';
-                        }
-
-                        if (productData.image) {
-                            messageToSave.imageUrl = productData.image;
-                            // 💡 텍스트나 제품 목록이 있는 경우 'photo' 대신 'text' 타입을 유지하여 말풍선 내에 렌더링되게 함
-                            if (!messageToSave.text && !messageToSave.products) {
-                                messageToSave.type = 'photo';
-                            }
-                        }
-
-                        if (messageToSave.text || messageToSave.imageUrl || messageToSave.products) {
-                            await db.collection("messages").add(messageToSave);
-                            console.log("Product info message sent successfully.");
-                        }
-                    }
-                } else {
-                    console.error(`Product info API request failed with status ${productResponse.status}`);
-                }
-            } catch (error) {
-                console.error("Error calling product info API:", error);
-            }
-            return; // 제품 정보 응답 후 일반 봇 로직은 실행하지 않음
         }
 
         const docSnap = await botStatusRef.get();
