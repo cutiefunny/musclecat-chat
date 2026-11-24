@@ -117,7 +117,8 @@ async function sendBotReply(message, messageId) {
     try {
         // 1. 메시지에 "바코드", "얼마", "가격"이 포함된 경우 /product API 호출로 일원화
         if (message.text && (message.text.includes('바코드') || message.text.includes('얼마') || message.text.includes('가격'))) {
-            console.log("Product inquiry detected ('바코드', '얼마', or '가격'). Calling /product API...");
+            const isBarcodeInquiry = message.text.includes('바코드');
+            console.log(`Product inquiry detected (${isBarcodeInquiry ? '바코드' : '얼마/가격'}). Calling /product API...`);
             try {
                 const response = await fetch(`${API_BASE_URL}/product`, {
                     method: 'POST',
@@ -167,12 +168,13 @@ async function sendBotReply(message, messageId) {
 
                         if (parsedProducts.length > 0) {
                             messageToSave.products = parsedProducts;
+                            messageToSave.productDisplayMode = isBarcodeInquiry ? 'barcode' : 'price';
                             messageToSave.text = ""; // reason 생략하고 목록만 표시
                         } else {
-                            messageToSave.text = "어떤 제품의 바코드를 찾고 있냥?";
+                            messageToSave.text = "어떤 제품의 정보를 찾고 있냥?";
                         }
                     } else {
-                        messageToSave.text = "어떤 제품의 바코드를 찾고 있냥?";
+                        messageToSave.text = "어떤 제품의 정보를 찾고 있냥?";
                     }
 
                     await db.collection("messages").add(messageToSave);
@@ -181,7 +183,7 @@ async function sendBotReply(message, messageId) {
                     console.error(`/product API failed with status ${response.status}`);
                     // API 실패 시 기본 안내 멘트 전송
                     await db.collection("messages").add({
-                        text: "어떤 제품의 바코드를 찾고 있냥?",
+                        text: "어떤 제품의 정보를 찾고 있냥?",
                         type: 'text',
                         sender: '근육고양이봇',
                         uid: 'bot-01',
@@ -192,7 +194,7 @@ async function sendBotReply(message, messageId) {
             } catch (error) {
                 console.error("Error calling /product API:", error);
                 await db.collection("messages").add({
-                    text: "어떤 제품의 바코드를 찾고 있냥?",
+                    text: "어떤 제품의 정보를 찾고 있냥?",
                     type: 'text',
                     sender: '근육고양이봇',
                     uid: 'bot-01',

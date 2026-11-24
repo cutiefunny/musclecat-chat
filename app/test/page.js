@@ -115,6 +115,7 @@ export default function TestSimulationPage() {
 
     // 메시지에 "바코드", "얼마", "가격"이 포함된 경우 /product API 호출로 일원화
     if (userText.includes('바코드') || userText.includes('얼마') || userText.includes('가격')) {
+      const isBarcodeInquiry = userText.includes('바코드');
       const apiUrl = `${baseUrl}/product`;
       const requestBody = { prompt: userText };
 
@@ -170,6 +171,7 @@ export default function TestSimulationPage() {
 
             if (parsedProducts.length > 0) {
               botMsg.products = parsedProducts;
+              botMsg.productDisplayMode = isBarcodeInquiry ? 'barcode' : 'price';
               botMsg.text = ""; // reason 생략하고 목록만 표시
             } else {
               botMsg.text = "어떤 제품의 바코드를 찾고 있냥?";
@@ -336,27 +338,53 @@ export default function TestSimulationPage() {
                                 <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-100">
                                   <tr>
                                     <th className="px-2 py-1.5 whitespace-nowrap">품명</th>
-                                    <th className="px-2 py-1.5 whitespace-nowrap">가격</th>
-                                    <th className="px-2 py-1.5 whitespace-nowrap text-center">바코드</th>
+                                    {msg.productDisplayMode === 'barcode' ? (
+                                      <th className="px-2 py-1.5 whitespace-nowrap text-center">바코드</th>
+                                    ) : (
+                                      <>
+                                        <th className="px-2 py-1.5 whitespace-nowrap">가격</th>
+                                        <th className="px-2 py-1.5 whitespace-nowrap text-center">바코드</th>
+                                      </>
+                                    )}
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                   {msg.products.map((p, idx) => (
                                     <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
                                       <td className="px-2 py-2 font-medium text-gray-800">{p.name}</td>
-                                      <td className="px-2 py-2 text-blue-600 font-bold">{p.price}</td>
-                                      <td className="px-2 py-2 text-center text-zinc-900">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${p.barcode}`;
-                                            setSelectedImageUrl(qrCodeUrl); // 이미지 모달로 QR코드 표시
-                                          }}
-                                          className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border border-zinc-200 font-bold transition-colors"
-                                        >
-                                          바코드
-                                        </button>
-                                      </td>
+                                      {msg.productDisplayMode === 'barcode' ? (
+                                        <td className="px-2 py-2 text-center">
+                                          {p.barcode ? (
+                                            <img
+                                              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(p.barcode)}`}
+                                              alt={`${p.name} 바코드`}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedImageUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(p.barcode)}`);
+                                              }}
+                                              className="w-16 h-16 mx-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                                            />
+                                          ) : (
+                                            <span className="text-gray-400">-</span>
+                                          )}
+                                        </td>
+                                      ) : (
+                                        <>
+                                          <td className="px-2 py-2 text-blue-600 font-bold">{p.price}</td>
+                                          <td className="px-2 py-2 text-center text-zinc-900">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${p.barcode}`;
+                                                setSelectedImageUrl(qrCodeUrl); // 이미지 모달로 QR코드 표시
+                                              }}
+                                              className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border border-zinc-200 font-bold transition-colors"
+                                            >
+                                              바코드
+                                            </button>
+                                          </td>
+                                        </>
+                                      )}
                                     </tr>
                                   ))}
                                 </tbody>
