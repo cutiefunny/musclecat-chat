@@ -24,13 +24,18 @@ exports.handleNewMessage = onDocumentCreated("messages/{messageId}", async (even
     }
     const newMessage = snapshot.data();
 
-    // 고객이 보낸 메시지일 때만 푸시 알림과 봇 응답 로직을 실행합니다.
+    // 고객이 보낸 메시지: 푸시 알림 + 봇 응답
     if (newMessage.uid === "customer") {
         console.log(`Customer message received. Triggering push notification and bot reply.`);
         await Promise.all([
             sendPushNotificationToOwner(newMessage),
             sendBotReply(newMessage, event.params.messageId)
         ]);
+    }
+    // 사장님이 보낸 메시지: 봇 응답만 실행 (본인에게 푸시 알림은 보내지 않음)
+    else if (newMessage.uid === "owner") {
+        console.log(`Owner message received. Triggering bot reply.`);
+        await sendBotReply(newMessage, event.params.messageId);
     }
 });
 
