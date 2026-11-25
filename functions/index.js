@@ -118,8 +118,78 @@ async function sendPushNotificationToOwner(message) {
 async function sendBotReply(message, messageId) {
     const db = getFirestore();
     const botStatusRef = db.doc("settings/bot");
+    const callStateRef = db.doc("settings/bot_call_state");
 
     try {
+        // 봇 ON 상태 확인 (OFF면 모든 봇 응답 중단)
+        const docSnap = await botStatusRef.get();
+        if (!docSnap.exists || docSnap.data().isActive === false) {
+            console.log("Bot is disabled. No reply will be sent.");
+            return;
+        }
+
+        if (message.type !== 'text' || !message.text) {
+            console.log("Message is not a text type or has no content. Skipping bot reply.");
+            return;
+        }
+
+        // 0. 'call' 대기 상태 확인 (사장 제외, 1분 이내 다음 대답이면 무조건 /answer 호출)
+        const isOwner = message.uid === 'owner' || message.senderEmail === 'cutiefunny@gmail.com';
+        if (!isOwner) {
+            const callStateSnap = await callStateRef.get();
+            if (callStateSnap.exists) {
+                const callState = callStateSnap.data();
+                const expiresAt = callState.expiresAt || 0;
+
+                if (callState.category === 'call' && Date.now() < expiresAt) {
+                    console.log("Active 'call' state detected. Forwarding user reply to /answer with category: 'call'...");
+                    // 1회 응답 처리 후 상태 해제 (응답이 다시 category: 'call'이면 아래에서 재설정됨)
+                    await callStateRef.delete();
+
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/answer`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ prompt: message.text, category: 'call' }),
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            console.log("/answer (call follow-up) API response received:", data);
+
+                            if (data && data.category === 'call') {
+                                await callStateRef.set({
+                                    category: 'call',
+                                    expiresAt: Date.now() + 60 * 1000,
+                                    updatedAt: FieldValue.serverTimestamp()
+                                });
+                            }
+
+                            if (data && data.needsAnswer !== false && data.answer && data.answer.trim()) {
+                                await db.collection("messages").add({
+                                    text: data.answer.trim(),
+                                    type: 'text',
+                                    sender: '근육고양이봇',
+                                    uid: 'bot-01',
+                                    authUid: 'bot-01',
+                                    timestamp: FieldValue.serverTimestamp()
+                                });
+                                console.log("Call follow-up answer reply sent successfully.");
+                            }
+                        } else {
+                            console.error(`/answer (call follow-up) API failed with status ${response.status}`);
+                        }
+                    } catch (error) {
+                        console.error("Error calling /answer (call follow-up) API:", error);
+                    }
+                    return;
+                } else if (callState.category === 'call') {
+                    // 1분 만료된 상태 정리
+                    await callStateRef.delete();
+                }
+            }
+        }
+
         // 1. 메시지에 "바코드", "얼마", "가격"이 포함된 경우 /product API 호출로 일원화
         if (message.text && (message.text.includes('바코드') || message.text.includes('얼마') || message.text.includes('가격'))) {
             const isBarcodeInquiry = message.text.includes('바코드');
@@ -210,98 +280,50 @@ async function sendBotReply(message, messageId) {
             return;
         }
 
-        const docSnap = await botStatusRef.get();
-
-        if (!docSnap.exists || docSnap.data().isActive === false) {
-            console.log("Bot is disabled. No reply will be sent.");
-            return;
-        }
-
-        const messagesRef = db.collection("messages");
-        const recentMessagesQuery = messagesRef.orderBy("timestamp", "desc").limit(2);
-        const recentMessagesSnapshot = await recentMessagesQuery.get();
-
-        // if (!recentMessagesSnapshot.empty) {
-        //     const previousMessages = recentMessagesSnapshot.docs.filter(doc => doc.id !== messageId);
-        //     if (previousMessages.length > 0 && previousMessages[0].data().uid === 'bot-01') {
-        //         console.log("The previous message was from the bot. Skipping bot reply.");
-        //         return;
-        //     }
-        // }
-
-        if (message.type !== 'text' || !message.text) {
-            console.log("Message is not a text type or has no content. Skipping bot reply.");
-            return;
-        }
-
-        console.log("Calling external bot API...");
-        let prompt = message.text;
-        const response = await fetch('https://musclecat.co.kr/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt }),
-        });
-
-        if (!response.ok) {
-            const errorBody = await response.text();
-            console.error(`Bot API request failed with status ${response.status}: ${errorBody}`);
-            throw new Error(`Bot API request failed with status ${response.status}`);
-        }
-
-        const botResponseText = await response.text();
-        console.log("Bot API response received:", botResponseText);
-
-        if (botResponseText && botResponseText.trim()) {
-            if (botResponseText.trim().toLowerCase().includes('fail')) {
-                console.log("Bot response contains 'fail'. No message will be sent.");
-                return;
-            }
-
-            // ==========================================
-            // [수정] 마크다운 이미지 감지 및 분리 로직
-            // ==========================================
-            let replyText = botResponseText.trim();
-            let imageUrl = null;
-
-            // 정규식: ![...](URL) 패턴 찾기
-            const imageRegex = /!\[.*?\]\((.*?)\)/;
-            const match = replyText.match(imageRegex);
-
-            if (match) {
-                imageUrl = match[1]; // (URL) 부분 추출
-                replyText = replyText.replace(match[0], "").trim(); // 원본 텍스트에서 마크다운 제거
-            }
-
-            // 1. 텍스트 메시지 전송 (텍스트가 남아있을 경우)
-            if (replyText) {
-                await db.collection("messages").add({
-                    text: replyText,
-                    type: 'text',
-                    sender: '근육고양이봇',
-                    uid: 'bot-01',
-                    authUid: 'bot-01',
-                    timestamp: FieldValue.serverTimestamp()
+        // 2. 메시지에 "안녕", "?", "사장"이 포함된 경우 /answer API 호출 (사장님 제외)
+        if (!isOwner && message.text && (message.text.includes('안녕') || message.text.includes('?') || message.text.includes('사장'))) {
+            console.log("Question/Greeting detected ('안녕' or '?' or '사장'). Calling /answer API...");
+            try {
+                const response = await fetch(`${API_BASE_URL}/answer`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: message.text }),
                 });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("/answer API response received:", data);
+
+                    // 응답 category가 'call'이면 1분간 대기 상태 저장
+                    if (data && data.category === 'call') {
+                        await callStateRef.set({
+                            category: 'call',
+                            expiresAt: Date.now() + 60 * 1000,
+                            updatedAt: FieldValue.serverTimestamp()
+                        });
+                        console.log("Bot 'call' state activated for 1 minute.");
+                    }
+
+                    if (data && data.needsAnswer !== false && data.answer && data.answer.trim()) {
+                        await db.collection("messages").add({
+                            text: data.answer.trim(),
+                            type: 'text',
+                            sender: '근육고양이봇',
+                            uid: 'bot-01',
+                            authUid: 'bot-01',
+                            timestamp: FieldValue.serverTimestamp()
+                        });
+                        console.log("Answer reply sent successfully.");
+                    } else {
+                        console.log("No answer needed or empty answer from /answer API.");
+                    }
+                } else {
+                    console.error(`/answer API failed with status ${response.status}`);
+                }
+            } catch (error) {
+                console.error("Error calling /answer API:", error);
             }
-
-            // 2. 이미지 메시지 전송 (이미지가 발견된 경우)
-            if (imageUrl) {
-                // 약간의 딜레이를 주어 텍스트 뒤에 보장
-                await new Promise(r => setTimeout(r, 100));
-
-                await db.collection("messages").add({
-                    text: imageUrl,
-                    type: 'image',
-                    sender: '근육고양이봇',
-                    uid: 'bot-01',
-                    authUid: 'bot-01',
-                    timestamp: FieldValue.serverTimestamp()
-                });
-            }
-            console.log("Successfully sent bot reply.");
-
-        } else {
-            console.log("Bot API returned an empty response text. No message will be sent.");
+            return;
         }
     } catch (error) {
         console.error("Error sending bot reply:", error);

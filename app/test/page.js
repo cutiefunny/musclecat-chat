@@ -74,6 +74,7 @@ export default function TestSimulationPage() {
 
   const scrollViewportRef = useRef(null);
   const inputRef = useRef(null);
+  const callStateRef = useRef({ category: null, expiresAt: 0 });
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -111,7 +112,61 @@ export default function TestSimulationPage() {
   };
 
   const simulateBotResponse = async (userText, user) => {
+    if (!isBotActive) return;
+
     const baseUrl = backendEnv === 'local' ? 'http://localhost:8787/api' : 'https://musclecat-hono.musclecat.workers.dev/api';
+
+    // 0. 'call' 대기 상태 확인 (사장 제외, 1분 이내 다음 대답이면 무조건 /answer 호출)
+    const isOwner = user?.uid === 'owner';
+    if (!isOwner && callStateRef.current.category === 'call') {
+      if (Date.now() < callStateRef.current.expiresAt) {
+        callStateRef.current = { category: null, expiresAt: 0 };
+        const apiUrl = `${baseUrl}/answer`;
+        const requestBody = { prompt: userText, category: 'call' };
+
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setApiLog({
+              url: apiUrl,
+              method: 'POST',
+              request: requestBody,
+              response: data,
+              status: response.status,
+              timestamp: new Date().toLocaleTimeString()
+            });
+
+            if (data && data.category === 'call') {
+              callStateRef.current = { category: 'call', expiresAt: Date.now() + 60 * 1000 };
+            }
+
+            if (data && data.needsAnswer !== false && data.answer && data.answer.trim()) {
+              const botMsg = {
+                id: (Date.now() + 1).toString(),
+                sender: '근육고양이봇',
+                uid: 'bot-01',
+                authUid: 'bot-01',
+                timestamp: new Date(),
+                text: data.answer.trim(),
+                type: 'text'
+              };
+              setMessages(prev => [...prev, botMsg]);
+            }
+          }
+        } catch (error) {
+          console.error("Error calling /answer (call follow-up) API in test:", error);
+        }
+        return;
+      } else {
+        callStateRef.current = { category: null, expiresAt: 0 };
+      }
+    }
 
     // 메시지에 "바코드", "얼마", "가격"이 포함된 경우 /product API 호출로 일원화
     if (userText.includes('바코드') || userText.includes('얼마') || userText.includes('가격')) {
@@ -208,46 +263,50 @@ export default function TestSimulationPage() {
       return;
     }
 
-    if (!isBotActive) return;
+    // 메시지에 "안녕", "?", "사장"이 포함된 경우 /answer API 호출 (사장님 제외)
+    if (!isOwner && (userText.includes('안녕') || userText.includes('?') || userText.includes('사장'))) {
+      const apiUrl = `${baseUrl}/answer`;
+      const requestBody = { prompt: userText };
 
-    try {
-      let prompt = '넌 근육고양이봇이야. 반말로 짧게 대답해줘. ';
-      prompt += '질문 : ' + userText;
-      const apiUrl = `${baseUrl}/generate`;
-      const requestBody = { prompt };
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (response.ok) {
-        const botResponseText = await response.text();
-        setApiLog({
-          url: apiUrl,
+      try {
+        const response = await fetch(apiUrl, {
           method: 'POST',
-          request: requestBody,
-          response: botResponseText,
-          status: response.status,
-          timestamp: new Date().toLocaleTimeString()
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
         });
 
-        if (botResponseText && botResponseText.trim() && !botResponseText.trim().toLowerCase().includes('fail')) {
-          const botMsg = {
-            id: (Date.now() + 1).toString(),
-            text: botResponseText.trim(),
-            sender: '근육고양이봇',
-            uid: 'bot-01',
-            authUid: 'bot-01',
-            timestamp: new Date(),
-            type: 'text'
-          };
-          setMessages(prev => [...prev, botMsg]);
+        if (response.ok) {
+          const data = await response.json();
+          setApiLog({
+            url: apiUrl,
+            method: 'POST',
+            request: requestBody,
+            response: data,
+            status: response.status,
+            timestamp: new Date().toLocaleTimeString()
+          });
+
+          if (data && data.category === 'call') {
+            callStateRef.current = { category: 'call', expiresAt: Date.now() + 60 * 1000 };
+          }
+
+          if (data && data.needsAnswer !== false && data.answer && data.answer.trim()) {
+            const botMsg = {
+              id: (Date.now() + 1).toString(),
+              sender: '근육고양이봇',
+              uid: 'bot-01',
+              authUid: 'bot-01',
+              timestamp: new Date(),
+              text: data.answer.trim(),
+              type: 'text'
+            };
+            setMessages(prev => [...prev, botMsg]);
+          }
         }
+      } catch (error) {
+        console.error("Error calling /answer API in test:", error);
       }
-    } catch (error) {
-      console.error("Error calling bot API:", error);
+      return;
     }
   };
 
@@ -393,7 +452,7 @@ export default function TestSimulationPage() {
                           )}
 
                         </Card>
-                        <span className="text-[10px] text-gray-500 mb-1">{formatTime(msg.timestamp)}</span>
+                        <span className="text-[10px] text-gray-500 mb-1" suppressHydrationWarning>{formatTime(msg.timestamp)}</span>
                       </div>
                     </div>
 

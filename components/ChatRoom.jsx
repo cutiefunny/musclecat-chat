@@ -59,6 +59,7 @@ const ChatRoom = () => {
   const didInitialScroll = useRef(false);
   const lastMessageIdRef = useRef(null);
   const scrollInfoRef = useRef({ previousScrollHeight: 0 });
+  const lastSentMessageRef = useRef({ authUid: null, text: null, imageUrl: null, type: null, timestamp: 0 });
 
   useChatData();
   useBot();
@@ -280,7 +281,33 @@ const ChatRoom = () => {
   }, [authUser?.email, chatUser?.uid, setReplyingToMessage]);
 
   const handleSendMessage = async (text, imagePayload = null, type = 'text') => {
-    if (!text?.trim() && !imagePayload) return;
+    const trimmedText = text?.trim() || "";
+    if (!trimmedText && !imagePayload) return;
+
+    // 💡 같은 이용자가 5초 이내에 직전과 완전히 동일한 내용을 전송하려 할 경우 중복 전송 차단
+    const now = Date.now();
+    const currentImageUrl = imagePayload?.downloadURL || null;
+    const lastSent = lastSentMessageRef.current;
+
+    if (
+      lastSent.authUid === authUser?.uid &&
+      lastSent.type === type &&
+      lastSent.text === trimmedText &&
+      lastSent.imageUrl === currentImageUrl &&
+      now - lastSent.timestamp < 5000
+    ) {
+      console.warn("중복 메시지 전송이 차단되었습니다 (5초 이내 동일 내용).");
+      return;
+    }
+
+    // 중복 방지 기준 즉시 갱신 (네트워크 지연 중 연타/재시도 방지)
+    lastSentMessageRef.current = {
+      authUid: authUser?.uid || null,
+      text: trimmedText,
+      imageUrl: currentImageUrl,
+      type,
+      timestamp: now,
+    };
 
     const isAdmin = authUser?.email === 'cutiefunny@gmail.com' || chatUser?.uid === 'owner';
 
@@ -299,11 +326,18 @@ const ChatRoom = () => {
       messageData.storagePath = imagePayload.storagePath;
     }
 
-    await sendMessage(messageData);
-
+    // 입력창을 전송 시작 시점에 먼저 비워 연타로 인한 중복 전송 방지
     setReplyingToMessage(null);
     if (type === 'text') {
       setNewMessage('');
+    }
+
+    try {
+      await sendMessage(messageData);
+    } catch (error) {
+      console.error("메시지 전송 실패:", error);
+      // 전송 실패 시 재전송할 수 있도록 중복 방지 타임스탬프 초기화
+      lastSentMessageRef.current.timestamp = 0;
     }
 
     if (isExternalKeyboardMode) {
